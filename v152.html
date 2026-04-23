@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Invoice System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f9f8f6;
+    --surface: #ffffff;
+    --border: #e8e5e0;
+    --text: #1a1814;
+    --text-secondary: #7a756e;
+    --accent: #2c5f2e;
+    --accent-light: #eef3ee;
+    --danger: #c0392b;
+    --warning: #d4881a;
+    --success: #2c5f2e;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  }
+
+  /* ── RESET ── */
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: -webkit-sticky;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .nav-brand {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .nav-links { display: flex; gap: 4px; }
+
+  .nav-link {
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+    border: none;
+    background: none;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  .nav-link:hover { background: var(--bg); color: var(--text); }
+  .nav-link.active { background: var(--accent-light); color: var(--accent); }
+
+  /* ── PAGES ── */
+  .page { display: none; padding: 32px 24px; max-width: 1100px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 32px;
+  }
+
+  .page-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .page-subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 11px 20px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+    min-height: 44px;
+    touch-action: manipulation;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #234d25; }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--bg); }
+  .btn-danger { background: #fdf0ef; color: var(--danger); border: 1px solid #f5c6c3; }
+  .btn-danger:hover { background: #fbe1df; }
+  .btn-sm { padding: 7px 12px; font-size: 13px; min-height: 36px; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+
+  /* ── FORM ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .form-full { grid-column: 1 / -1; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  /* iOS: 16px minimum prevents auto-zoom; -webkit-appearance removes native styling */
+  input, select, textarea {
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    background: var(--surface);
+    transition: border-color 0.15s;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+  }
+
+  /* Custom dropdown arrow for select (since we removed native appearance) */
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%237a756e' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-color: var(--surface);
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(44,95,46,0.08);
+  }
+
+  input[readonly] { background: var(--bg); color: var(--text-secondary); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* ── SERVICE TABLE ── */
+  .service-table { width: 100%; border-collapse: collapse; }
+  .service-table th {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-secondary);
+    padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  .service-table td { padding: 8px 6px; vertical-align: middle; }
+  .service-table input, .service-table select { padding: 9px 10px; font-size: 14px; }
+
+  .add-row-btn {
+    margin-top: 12px; display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--accent); background: none;
+    border: 1px dashed var(--accent); border-radius: var(--radius);
+    padding: 8px 16px; cursor: pointer; width: 100%; justify-content: center;
+    font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+    min-height: 44px; touch-action: manipulation;
+  }
+  .add-row-btn:hover { background: var(--accent-light); }
+
+  /* ── TOTALS ── */
+  .totals-section { display: flex; justify-content: flex-end; margin-top: 20px; }
+  .totals-box { width: 280px; }
+  .total-row {
+    display: flex; justify-content: space-between;
+    padding: 8px 0; font-size: 13px; color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+  .total-row.final {
+    border-bottom: none; border-top: 2px solid var(--text);
+    margin-top: 4px; padding-top: 12px; font-size: 16px;
+    font-weight: 600; color: var(--text);
+  }
+
+  /* ── STATUS BADGE ── */
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+  }
+  .badge-draft { background: #f0f0f0; color: #666; }
+  .badge-sent { background: #e8f0fe; color: #1a56db; }
+  .badge-paid { background: #eef3ee; color: var(--success); }
+  .badge-unpaid { background: #fdf0ef; color: var(--danger); }
+
+  /* ── INVOICE TABLE ── */
+  .invoice-table { width: 100%; border-collapse: collapse; }
+  .invoice-table th {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-secondary);
+    padding: 12px 16px; text-align: left;
+    border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  .invoice-table td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .invoice-table tr:last-child td { border-bottom: none; }
+  .invoice-table tr:hover td { background: var(--bg); }
+
+  /* ── SETTINGS ── */
+  .settings-section { margin-bottom: 28px; }
+  .settings-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-secondary);
+    margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+
+  /* ── COLOR SWATCHES ── */
+  .color-swatches { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .swatch {
+    width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+    border: 3px solid transparent; transition: all 0.15s;
+    min-width: 36px; touch-action: manipulation;
+  }
+  .swatch.selected { border-color: var(--text); transform: scale(1.1); }
+
+  /* ── EMPTY STATE ── */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+  .empty-state-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-state-title { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+  .empty-state-sub { font-size: 13px; }
+
+  /* ── MISC ── */
+  .divider { height: 1px; background: var(--border); margin: 24px 0; }
+  .helper-text { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+
+  .form-actions {
+    display: flex; gap: 10px; justify-content: flex-end;
+    margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--text); color: #fff;
+    padding: 12px 20px; border-radius: var(--radius);
+    font-size: 13px; font-weight: 500;
+    opacity: 0; transform: translateY(8px);
+    transition: all 0.2s; z-index: 999; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── LOGO UPLOAD ── */
+  .logo-upload {
+    border: 2px dashed var(--border); border-radius: var(--radius);
+    padding: 24px; text-align: center; cursor: pointer; transition: all 0.15s;
+  }
+  .logo-upload:hover { border-color: var(--accent); background: var(--accent-light); }
+  .logo-preview { max-height: 60px; margin-bottom: 8px; }
+
+  /* ── STATS ROW ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; min-height: 112px; }
+  .stat-label { font-size: 12px; color: var(--text-secondary); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--text); }
+
+  /* ── DASHBOARD ── */
+  .dashboard-toolbar {
+    display: flex; gap: 12px; align-items: center;
+    justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .toolbar-group { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .toolbar-input { min-width: 240px; background: var(--surface); }
+  .toolbar-select { min-width: 150px; background: var(--surface); }
+  .inline-note { font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+
+  .hero-card {
+    background: linear-gradient(135deg, rgba(44,95,46,0.12), rgba(44,95,46,0.04));
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 22px 24px; margin-bottom: 24px;
+    display: flex; justify-content: space-between;
+    gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .hero-title { font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 6px; }
+  .hero-subtitle { font-size: 13px; color: var(--text-secondary); max-width: 560px; }
+  .dashboard-meta { display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary); flex-wrap: wrap; margin-top: 10px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; }
+
+  .actions-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* ── SIGNATURE ── */
+  .sig-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .sig-tab {
+    padding: 6px 12px; border-radius: var(--radius); font-size: 12px;
+    font-weight: 500; cursor: pointer; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-secondary);
+    font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+    min-height: 36px; touch-action: manipulation;
+  }
+  .sig-tab.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+  .sig-canvas {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    cursor: crosshair; background: #fff; display: block;
+    width: 100%; touch-action: none;
+  }
+  .sig-panel { min-height: 110px; }
+
+
+  /* ── EMAIL FLOW ── */
+  .email-flow {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #faf9f7 100%);
+    padding: 18px;
+  }
+  .email-flow-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .email-flow-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .email-flow-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .email-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0 14px 0;
+  }
+  .email-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .email-preview-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .email-preview-row {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .email-preview-row:last-child { border-bottom: none; }
+  .email-preview-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+  }
+  .email-preview-value {
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .email-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .email-actions .btn { flex: 1 1 180px; }
+
+  /* ── RESPONSIVE: TABLET ── */
+  @media (max-width: 900px) {
+    .page { padding: 24px 18px; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 14px; }
+    .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── RESPONSIVE: IPHONE / MOBILE ── */
+  @media (max-width: 600px) {
+    body { font-size: 14px; }
+    nav { padding: 0 14px; height: auto; min-height: 60px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; gap: 10px; }
+    .nav-brand { font-size: 19px; width: 100%; }
+    .nav-links { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .nav-link { width: 100%; text-align: center; padding: 10px 8px; font-size: 13px; }
+    .page { padding: 18px 13px; }
+    .page-title { font-size: 22px; }
+    .page-subtitle, .hero-subtitle, .inline-note, .helper-text { font-size: 11px; }
+    .hero-title { font-size: 18px; }
+    .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-card { padding: 12px; min-height: auto; }
+    .stat-label { font-size: 10px; }
+    .stat-value { font-size: 20px; }
+    .toolbar-input, .toolbar-select { min-width: 100%; width: 100%; }
+    .hero-card { padding: 14px; }
+    .card { padding: 15px; }
+    .invoice-table th, .invoice-table td { padding: 9px 6px; font-size: 12px; }
+    .service-table th, .service-table td { padding: 8px 6px; font-size: 12px; }
+    .service-table input, .service-table select { min-width: 76px; font-size: 16px; } /* keep 16px for iOS */
+    /* inputs stay at 16px globally — DO NOT override down to prevent iOS zoom */
+    .btn { padding: 10px 15px; font-size: 13px; }
+    .btn-sm { padding: 8px 10px; font-size: 12px; }
+    .actions-wrap { flex-direction: column; }
+    .badge { font-size: 10px; }
+    .form-actions { justify-content: stretch; }
+    .form-actions .btn { flex: 1; }
+    .totals-box { width: 100%; }
+    .totals-section { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand" id="navBrand">Invoice System</div>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="showPage('dashboard')">Dashboard</button>
+    <button class="nav-link" onclick="showPage('create')">New Invoice</button>
+    <button class="nav-link" onclick="showPage('settings')">Settings</button>
+  </div>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════
+     PAGE 1: DASHBOARD
+════════════════════════════════════════ -->
+<div class="page active" id="page-dashboard">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Invoices</div>
+      <div class="page-subtitle">Create, manage, and download invoices in seconds</div>
+    </div>
+    <button class="btn btn-primary" onclick="showPage('create')">+ New Invoice</button>
+  </div>
+
+  <div class="hero-card">
+    <div>
+      <div class="hero-title">Professional Invoice Workspace</div>
+      <div class="hero-subtitle">Create invoices quickly, manage them from one dashboard, and export polished PDFs for your client workflow.</div>
+      <div class="dashboard-meta">
+        <span class="pill">Browser-based</span>
+        <span class="pill">Instant PDF export</span>
+        <span class="pill">Custom branding</span>
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="exportInvoices()">Export Backup</button>
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="dashboard-toolbar">
+    <div class="toolbar-group">
+      <input class="toolbar-input" id="invoiceSearch" type="text" placeholder="Search by invoice # or client name" oninput="renderDashboard()">
+      <select class="toolbar-select" id="statusFilter" onchange="renderDashboard()">
+        <option value="All">All Statuses</option>
+        <option value="Draft">Draft</option>
+        <option value="Sent">Sent</option>
+        <option value="Paid">Paid</option>
+        <option value="Void">Void</option>
+      </select>
+    </div>
+    <div class="inline-note" id="resultsSummary">Showing all invoices</div>
+  </div>
+
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <div id="invoiceListContainer"></div>
+    <div class="inline-note" style="padding:0 16px 14px 16px; text-align:center;">← Swipe to see all columns →</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     PAGE 2: CREATE / EDIT INVOICE
+════════════════════════════════════════ -->
+<div class="page" id="page-create">
+  <div class="page-header">
+    <div>
+      <div class="page-title" id="formTitle">New Invoice</div>
+      <div class="page-subtitle">Fill in the details below — totals calculate automatically.</div>
+    </div>
+  </div>
+
+  <!-- INVOICE INFO -->
+  <div class="card">
+    <div class="card-title">Invoice Info</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Invoice #</label>
+        <input type="text" id="invNumber" placeholder="INV-2026-001">
+        <div class="helper-text">Change this number manually and the next invoice will continue from there automatically.</div>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="invStatus" onchange="onStatusChange(this)">
+          <option value="Draft">Draft</option>
+          <option value="Sent">Sent</option>
+          <option value="Paid">Paid</option>
+          <option value="Void">Void</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Invoice Date</label>
+        <input type="date" id="invDate">
+      </div>
+      <div class="form-group">
+        <label>Service Month</label>
+        <input type="month" id="invMonth">
+      </div>
+    </div>
+  </div>
+
+  <!-- PROVIDER INFO -->
+  <div class="card">
+    <div class="card-title" id="providerCardTitle">Provider / Vendor Info</div>
+    <div class="helper-text" style="margin-bottom:14px;">This auto-fills from your Settings. Update your info once in Settings and it applies to all new invoices.</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label id="providerNameLabel">Provider Name</label>
+        <input type="text" id="providerName" placeholder="Joe Provider">
+      </div>
+      <div class="form-group">
+        <label id="providerTitleLabel">Provider Title</label>
+        <input type="text" id="providerTitle" placeholder="Provider Title">
+      </div>
+      <div class="form-full form-group">
+        <label>Provider Address</label>
+        <input type="text" id="providerAddress" placeholder="123 Any Street, Maryland, MD 20000">
+      </div>
+      <div class="form-group">
+        <label>Provider Email</label>
+        <input type="email" id="providerEmail" placeholder="provider@email.com" inputmode="email">
+      </div>
+      <div class="form-group">
+        <label>Provider Phone</label>
+        <input type="tel" id="providerPhone" placeholder="(410)-(000)-(0000)" inputmode="numeric" oninput="formatPhoneInput(this)" onblur="formatPhoneInput(this)">
+        <div class="helper-text">Format: (xxx)-(xxx)-(xxxx)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLIENT INFO -->
+  <div class="card">
+    <div class="card-title" id="clientCardTitle">Client / Employer Info</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label id="clientNameLabel">Employer / Client Name</label>
+        <input type="text" id="clientName" placeholder="Client Name">
+      </div>
+      <div class="form-group">
+        <label>Department #</label>
+        <input type="text" id="deptNumber" placeholder="24C5">
+      </div>
+      <div class="form-group">
+        <label>Fiscal Agent Number</label>
+        <input type="text" id="fiscalAgent" placeholder="FA-001">
+      </div>
+      <div class="form-group">
+        <label>NPI Number</label>
+        <input type="text" id="npiNumber" placeholder="NPI Number">
+      </div>
+      <div class="form-group">
+        <label>EIN or SSN</label>
+        <input type="text" id="einSsn" placeholder="EIN or SSN">
+      </div>
+      <div class="form-group">
+        <label>Legal Guardian</label>
+        <input type="text" id="legalGuardian" placeholder="Guardian Name (if applicable)">
+      </div>
+      <div class="form-full form-group">
+        <label>Client Address</label>
+        <input type="text" id="clientAddress" placeholder="456 Client Street, City, State">
+      </div>
+      <div class="form-group">
+        <label>Client Email</label>
+        <input type="email" id="clientEmail" placeholder="client@email.com" inputmode="email">
+      </div>
+    </div>
+  </div>
+
+  <!-- SERVICE LINES -->
+  <div class="card">
+    <div class="card-title">Services Rendered</div>
+    <div class="helper-text" style="margin-bottom:12px;">
+      Time is billed in 15-minute increments. You can type the time normally, and minutes will snap to <strong>00, 15, 30, or 45</strong>. If end time is earlier than start, it treats it as the <strong>next day</strong>. Midnight = <strong>00:00</strong>.
+    </div>
+    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+      <table class="service-table">
+        <thead>
+          <tr>
+            <th>Date of Service</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>Description of Services Rendered</th>
+            <th>Hours Worked (by quarter hour)</th>
+            <th>Rate</th>
+            <th>Amount</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="serviceRows"></tbody>
+      </table>
+    </div>
+    <button class="add-row-btn" onclick="addServiceRow()">+ Add Service Line</button>
+
+    <div class="totals-section">
+      <div class="totals-box">
+        <div class="total-row"><span>Total Hours</span><span id="totalHours">0.00</span></div>
+        <div class="total-row"><span>Rate</span><span id="displayRate">$0.00/hr</span></div>
+        <div class="total-row final"><span>Total Amount</span><span id="totalAmount">$0.00</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIGNATURES -->
+  <div class="card">
+    <div class="card-title">Signatures & Delivery</div>
+    <div class="form-grid">
+
+      <!-- CLIENT SIG — info only, client signs on their end -->
+      <div>
+        <label style="margin-bottom:10px;display:block;">Client / Employer Signature</label>
+        <div class="helper-text" style="background:var(--bg);border:1px solid var(--border);padding:14px;border-radius:var(--radius);">
+          The client does not sign inside this workspace. Their signature line will be blank on the PDF — email it to them and they sign on their end, then send it back to you.
+        </div>
+        <input type="hidden" id="clientSigData">
+      </div>
+
+      <!-- PROVIDER SIG -->
+      <div>
+        <label style="margin-bottom:10px;display:block;">Provider Signature</label>
+        <div class="sig-tabs">
+          <button class="sig-tab active" onclick="switchSigTab('provider','draw',this)">✍️ Draw</button>
+          <button class="sig-tab" onclick="switchSigTab('provider','upload',this)">⬆️ Upload</button>
+          <button class="sig-tab" onclick="switchSigTab('provider','type',this)">⌨️ Type</button>
+        </div>
+        <div id="provider-draw-panel" class="sig-panel">
+          <canvas id="providerSigCanvas" width="340" height="100" class="sig-canvas"
+            onmousedown="startDraw(event,'providerSigCanvas')"
+            onmousemove="draw(event,'providerSigCanvas')"
+            onmouseup="stopDraw('providerSigCanvas')"
+            onmouseleave="stopDraw('providerSigCanvas')"
+            ontouchstart="startDrawTouch(event,'providerSigCanvas')"
+            ontouchmove="drawTouch(event,'providerSigCanvas')"
+            ontouchend="stopDraw('providerSigCanvas')"></canvas>
+          <button class="btn btn-sm btn-secondary" style="margin-top:6px" onclick="clearCanvas('providerSigCanvas','providerSigData')">Clear</button>
+        </div>
+        <div id="provider-upload-panel" class="sig-panel" style="display:none">
+          <div class="logo-upload" onclick="document.getElementById('providerSigFile').click()" style="padding:16px;">
+            <img id="providerSigPreview" style="max-height:80px;display:none;">
+            <div id="providerSigUploadHint" style="font-size:12px;color:var(--text-secondary)">Click to upload signature image</div>
+          </div>
+          <input type="file" id="providerSigFile" accept="image/*" style="display:none" onchange="uploadSig(this,'providerSigData','providerSigPreview','providerSigUploadHint')">
+        </div>
+        <div id="provider-type-panel" class="sig-panel" style="display:none">
+          <input type="text" id="providerSigTyped" placeholder="Type full name" style="font-family:'DM Serif Display',serif;font-size:18px;" oninput="typeSig(this,'providerSigData')">
+        </div>
+        <input type="hidden" id="providerSigData">
+      </div>
+
+    </div>
+  </div>
+
+  <!-- EMAIL TO CLIENT -->
+  <div class="card">
+    <div class="card-title">Email to Client</div>
+    <div class="email-flow">
+      <div class="email-flow-top">
+        <div>
+          <div class="email-flow-title">Premium email handoff</div>
+          <div class="email-flow-subtitle">Download the invoice PDF, review the message, then open your email app with the draft prefilled.</div>
+        </div>
+      </div>
+
+      <div class="email-chip-row">
+        <span class="email-chip">1. Download PDF</span>
+        <span class="email-chip">2. Open email app</span>
+        <span class="email-chip">3. Attach PDF & send</span>
+      </div>
+
+      <div class="email-preview-box">
+        <div class="email-preview-row">
+          <div class="email-preview-label">To</div>
+          <div class="email-preview-value" id="emailPreviewTo">Add client email to preview draft</div>
+        </div>
+        <div class="email-preview-row">
+          <div class="email-preview-label">Subject</div>
+          <div class="email-preview-value" id="emailPreviewSubject">Invoice subject will appear here</div>
+        </div>
+        <div class="email-preview-row">
+          <div class="email-preview-label">Message</div>
+          <div class="email-preview-value" id="emailPreviewBody">Email message preview will appear here</div>
+        </div>
+      </div>
+
+      <div class="email-actions">
+        <button class="btn btn-secondary" type="button" onclick="downloadWorkingCopyPDF()">⬇️ Download PDF</button>
+        <button class="btn btn-primary" type="button" onclick="openEmailDraftOnly()">📧 Open Email App</button>
+        <button class="btn btn-secondary" type="button" onclick="copyEmailMessage()">📋 Copy Message</button>
+      </div>
+
+      <div class="helper-text" style="margin-top:12px;">Browsers cannot auto-attach files to email. This flow downloads the PDF separately and opens your email app with the recipient, subject, and message already filled in.</div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-secondary" onclick="showPage('dashboard')">Cancel</button>
+    <button class="btn btn-secondary" onclick="saveInvoice('Draft')">Save as Draft</button>
+    <button class="btn btn-primary" onclick="saveInvoice()">Save Invoice</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     PAGE 3: SETTINGS
+════════════════════════════════════════ -->
+<div class="page" id="page-settings">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Settings</div>
+      <div class="page-subtitle">Set your business info once — it fills every new invoice automatically.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="settings-title">Business Profile</div>
+    <div class="form-grid">
+      <div class="form-full form-group">
+        <label>Business / Provider Name</label>
+        <input type="text" id="settingsBizName" placeholder="Kwesi Amoa">
+        <div class="helper-text">This name appears on all invoices as the provider name and also shows in the top nav bar.</div>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="settingsEmail" placeholder="kwesi@appsellent.com" inputmode="email">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="tel" id="settingsPhone" placeholder="(410)-(000)-(0000)" inputmode="numeric" oninput="formatPhoneInput(this)" onblur="formatPhoneInput(this)">
+        <div class="helper-text">Format: (xxx)-(xxx)-(xxxx)</div>
+      </div>
+      <div class="form-full form-group">
+        <label>Address</label>
+        <input type="text" id="settingsAddress" placeholder="106 New Market CT, Catonsville MD 21228">
+      </div>
+      <div class="form-group">
+        <label>Future Use</label>
+        <input type="text" id="settingsProviderLabel" placeholder="Provider / Vendor">
+      </div>
+      <div class="form-group">
+        <label>Client Label</label>
+        <input type="text" id="settingsClientLabel" placeholder="Employer / Client">
+      </div>
+      <div class="form-group">
+        <label>Default Provider Title</label>
+        <input type="text" id="settingsDefaultProviderTitle" placeholder="Provider Title">
+      </div>
+      <div class="form-group">
+        <label>Default Client Name</label>
+        <input type="text" id="settingsDefaultClientName" placeholder="Client Name">
+      </div>
+      <div class="form-full form-group">
+        <label>Default Service Description</label>
+        <input type="text" id="settingsDefaultDescription" placeholder="Job: Service Detail">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="settings-title">Logo</div>
+    <div class="logo-upload" onclick="document.getElementById('logoInput').click()">
+      <img id="logoPreview" class="logo-preview" style="display:none;">
+      <div id="logoPlaceholder">
+        <div style="font-size: 28px; margin-bottom: 8px; opacity: 0.3;">🖼</div>
+        <div style="font-size: 13px; color: var(--text-secondary);">Click to upload logo</div>
+        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">PNG, JPG up to 2MB</div>
+      </div>
+      <input type="file" id="logoInput" accept="image/*" style="display:none;" onchange="uploadLogo(this)">
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-secondary btn-sm" type="button" onclick="deleteLogo()">Remove Logo</button>
+    </div>
+
+    <div class="divider"></div>
+    <div class="settings-title">Invoice Defaults</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Default Hourly Rate</label>
+        <input type="number" id="settingsRate" placeholder="7.30" step="0.01" inputmode="decimal">
+      </div>
+      <div class="form-group">
+        <label>Currency</label>
+        <select id="settingsCurrency">
+          <option value="USD">USD ($)</option>
+          <option value="GBP">GBP (£)</option>
+          <option value="EUR">EUR (€)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Invoice Prefix</label>
+        <input type="text" id="settingsPrefix" placeholder="INV">
+        <div class="helper-text">Example: "INV" → INV-2026-001, INV-2026-002… Change this number on any invoice and the next one will continue from there.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="settings-title">Color Theme</div>
+    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">Choose your accent color</div>
+    <div class="color-swatches" id="colorSwatches">
+      <div class="swatch selected" style="background:#2c5f2e;" data-color="#2c5f2e" onclick="setColor(this)"></div>
+      <div class="swatch" style="background:#1a3a5c;" data-color="#1a3a5c" onclick="setColor(this)"></div>
+      <div class="swatch" style="background:#5c1a1a;" data-color="#5c1a1a" onclick="setColor(this)"></div>
+      <div class="swatch" style="background:#3d2b1a;" data-color="#3d2b1a" onclick="setColor(this)"></div>
+      <div class="swatch" style="background:#1a1a5c;" data-color="#1a1a5c" onclick="setColor(this)"></div>
+      <div class="swatch" style="background:#5c1a4a;" data-color="#5c1a4a" onclick="setColor(this)"></div>
+      <div class="swatch" style="background:#1a4a5c;" data-color="#1a4a5c" onclick="setColor(this)"></div>
+      <div class="swatch" style="background:#2d2d2d;" data-color="#2d2d2d" onclick="setColor(this)"></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="settings-title">Data Backup</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Export Data</label>
+        <button class="btn btn-secondary" type="button" onclick="exportInvoices()">Download Backup</button>
+        <div class="helper-text">Downloads all your invoices as a .json file.</div>
+      </div>
+      <div class="form-group">
+        <label>Import Data</label>
+        <input type="file" id="importInput" accept=".json" onchange="importInvoices(this)" style="font-size:14px;">
+        <div class="helper-text">Upload a backup file to restore all invoices on any device.</div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// SAFE STORAGE — handles iOS private browsing
+// ═══════════════════════════════════════
+const store = {
+  get(key, fallback = null) {
+    try { const v = localStorage.getItem(key); return v !== null ? v : fallback; } catch(e) { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, value); } catch(e) {}
+  }
+};
+
+// ═══════════════════════════════════════
+// DATA LAYER
+// ═══════════════════════════════════════
+let invoices = JSON.parse(store.get('ka_invoices', '[]'));
+let settings = JSON.parse(store.get('ka_settings', '{}'));
+let editingId = null;
+
+const defaults = {
+  bizName: 'Kwesi Amoa',
+  email: 'kwesi@appsellent.com',
+  phone: '',
+  address: '106 New Market CT, Catonsville MD 21228',
+  rate: 7.30,
+  currency: 'USD',
+  prefix: 'INV',
+  color: '#2c5f2e',
+  logo: null,
+  providerLabel: 'Provider / Vendor',
+  clientLabel: 'Employer / Client',
+  defaultProviderTitle: 'Provider Title',
+  defaultClientName: 'Client Name',
+  defaultDescription: 'Job: Service Detail'
+};
+
+function getSettings() { return Object.assign({}, defaults, settings); }
+
+function saveData() {
+  store.set('ka_invoices', JSON.stringify(invoices));
+  store.set('ka_settings', JSON.stringify(settings));
+}
+
+function getCurrencySymbol(code) {
+  return { USD: '$', GBP: '£', EUR: '€' }[code] || '$';
+}
+
+function formatMoney(value, currencyCode) {
+  const symbol = getCurrencySymbol(currencyCode || getSettings().currency);
+  return `${symbol}${parseFloat(value || 0).toFixed(2)}`;
+}
+
+// ═══════════════════════════════════════
+// DEMO DATA
+// ═══════════════════════════════════════
+function buildDemoInvoice({ id, number, status, date, month, providerName, providerTitle, providerAddress, providerEmail, providerPhone, clientName, deptNumber, fiscalAgent, legalGuardian, clientAddress, clientEmail, rows }) {
+  const currency = getSettings().currency;
+  let totalMins = 0, totalAmt = 0;
+  const rates = [];
+  const serviceRows = rows.map(row => {
+    let mins = 0;
+    if (String(row.hours || '').includes(':')) {
+      const [h, m] = String(row.hours || '0:00').split(':').map(Number);
+      mins = (h || 0) * 60 + (m || 0);
+    } else {
+      mins = Math.round((parseFloat(row.hours) || 0) * 60);
+    }
+    totalMins += mins;
+    rates.push(parseFloat(row.rate) || 0);
+    const amount = (mins / 60) * (parseFloat(row.rate) || 0);
+    totalAmt += amount;
+    return { ...row, hours: decimalHoursFromMinutes(mins), amount: formatMoney(amount, currency) };
+  });
+  const uniqueRates = [...new Set(rates.filter(r => r > 0).map(r => r.toFixed(2)))];
+  const rateDisplay = !uniqueRates.length ? `${getCurrencySymbol(currency)}0.00/hr`
+    : uniqueRates.length === 1 ? `${getCurrencySymbol(currency)}${uniqueRates[0]}/hr`
+    : 'Multiple rates';
+  return { id, number, status, date, month, providerName, providerTitle, providerAddress, providerEmail, providerPhone, clientName, deptNumber, fiscalAgent, legalGuardian, clientAddress, clientEmail, serviceRows,
+    totalHours: decimalHoursFromMinutes(totalMins),
+    totalAmount: totalAmt.toFixed(2), rateDisplay, currency, clientSig: '', providerSig: '',
+    createdAt: new Date().toISOString() };
+}
+
+function seedDemoInvoices() {
+  if (invoices.length) return;
+  const s = getSettings();
+  const year = new Date().getFullYear();
+  invoices = [
+    buildDemoInvoice({ id: 'demo-1', number: `${s.prefix}-${year}-001`, status: 'Paid', date: `${year}-03-12`, month: `${year}-03`,
+      providerName: s.bizName, providerTitle: 'Independent Provider', providerAddress: s.address, providerEmail: s.email, providerPhone: s.phone || '(410)-(555)-(0110)',
+      clientName: 'Jordan Walker', deptNumber: '24C5', fiscalAgent: 'FA-108', legalGuardian: 'Melissa Walker',
+      clientAddress: '2712 Cedar Lane, Baltimore, MD 21201', clientEmail: 'jordan.walker@example.com',
+      rows: [
+        { date: `${year}-03-05`, start: '09:00', end: '12:00', desc: 'Community support and transportation assistance', hours: '3:00', rate: 30 },
+        { date: `${year}-03-06`, start: '10:00', end: '12:30', desc: 'Appointment coordination and follow-up', hours: '2:30', rate: 30 }
+      ]
+    }),
+    buildDemoInvoice({ id: 'demo-2', number: `${s.prefix}-${year}-002`, status: 'Sent', date: `${year}-03-21`, month: `${year}-03`,
+      providerName: s.bizName, providerTitle: 'Independent Provider', providerAddress: s.address, providerEmail: s.email, providerPhone: s.phone || '(410)-(555)-(0110)',
+      clientName: 'Avery Johnson', deptNumber: '18B2', fiscalAgent: 'FA-221', legalGuardian: '',
+      clientAddress: '604 Willow Street, Columbia, MD 21044', clientEmail: 'avery.johnson@example.com',
+      rows: [
+        { date: `${year}-03-18`, start: '13:00', end: '17:00', desc: 'Skills training and progress reporting', hours: '4:00', rate: 28 },
+        { date: `${year}-03-19`, start: '09:30', end: '12:00', desc: 'In-home support visit', hours: '2:30', rate: 28 }
+      ]
+    })
+  ];
+  saveData();
+}
+
+// ═══════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(l => {
+    if (l.textContent.toLowerCase().includes(page === 'create' ? 'new' : page)) l.classList.add('active');
+  });
+  window.scrollTo(0, 0);
+  if (page === 'dashboard') renderDashboard();
+  if (page === 'create' && !editingId) resetForm();
+  if (page === 'settings') loadSettings();
+  
+  const s = getSettings();
+  const pLabel = s.providerLabel || 'Provider / Vendor';
+  const cLabel = s.clientLabel || 'Employer / Client';
+  
+  if (document.getElementById('providerCardTitle')) document.getElementById('providerCardTitle').textContent = pLabel + ' Info';
+  if (document.getElementById('providerNameLabel')) document.getElementById('providerNameLabel').textContent = pLabel + ' Name';
+  if (document.getElementById('providerTitleLabel')) document.getElementById('providerTitleLabel').textContent = pLabel + ' Title';
+  
+  if (document.getElementById('clientCardTitle')) document.getElementById('clientCardTitle').textContent = cLabel + ' Info';
+  if (document.getElementById('clientNameLabel')) document.getElementById('clientNameLabel').textContent = cLabel + ' Name';
+  
+  // Update the client signature label in the form
+  const clientSigLabel = document.querySelector('label[style*="margin-bottom:10px;display:block;"]');
+  if (clientSigLabel && clientSigLabel.textContent.includes('Client / Employer Signature')) {
+    clientSigLabel.textContent = cLabel + ' Signature';
+  }
+
+refreshEmailPreview();
+}
+
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
+function renderDashboard() {
+  const s = getSettings();
+  const symbol = getCurrencySymbol(s.currency);
+  document.getElementById('navBrand').textContent = s.bizName || 'Invoice System';
+
+  const searchTerm = (document.getElementById('invoiceSearch')?.value || '').trim().toLowerCase();
+  const statusFilter = document.getElementById('statusFilter')?.value || 'All';
+
+  const total = invoices.length;
+  const paid = invoices.filter(i => i.status === 'Paid').length;
+  const sent = invoices.filter(i => i.status === 'Sent').length;
+  const totalAmt = invoices.reduce((sum, i) => sum + (parseFloat(i.totalAmount) || 0), 0);
+  const paidAmt = invoices.filter(i => i.status === 'Paid').reduce((s, i) => s + (parseFloat(i.totalAmount) || 0), 0);
+  const sentAmt = invoices.filter(i => i.status === 'Sent').reduce((s, i) => s + (parseFloat(i.totalAmount) || 0), 0);
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Total Invoices</div>
+      <div class="stat-value">${total}</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:3px;">${symbol}${totalAmt.toFixed(2)} total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Paid</div>
+      <div class="stat-value" style="color:var(--success)">${paid}</div>
+      <div style="font-size:11px;color:var(--success);margin-top:3px;">${symbol}${paidAmt.toFixed(2)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Sent</div>
+      <div class="stat-value" style="color:#1a56db">${sent}</div>
+      <div style="font-size:11px;color:#1a56db;margin-top:3px;">${symbol}${sentAmt.toFixed(2)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Billed</div>
+      <div class="stat-value">${symbol}${totalAmt.toFixed(2)}</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:3px;">${total} invoice${total !== 1 ? 's' : ''}</div>
+    </div>
+  `;
+
+  const filtered = [...invoices].reverse().filter(inv => {
+    const matchesSearch = !searchTerm || (inv.number || '').toLowerCase().includes(searchTerm) || (inv.clientName || '').toLowerCase().includes(searchTerm);
+    const matchesStatus = statusFilter === 'All' || inv.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const summaryEl = document.getElementById('resultsSummary');
+  if (summaryEl) summaryEl.textContent = filtered.length === invoices.length
+    ? 'Showing all invoices'
+    : `Showing ${filtered.length} of ${invoices.length} invoices`;
+
+  const container = document.getElementById('invoiceListContainer');
+  if (!filtered.length) {
+    container.innerHTML = `<div class="empty-state">
+      <div class="empty-state-icon">🧾</div>
+      <div class="empty-state-title">No invoices found</div>
+      <div class="empty-state-sub">Try a different search or create a new invoice.</div>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Invoice #</th><th>Client</th><th>Date</th><th>Month</th>
+          <th>Hours</th><th>Rate</th><th>Amount</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map(inv => `
+          <tr>
+            <td><strong>${inv.number}</strong></td>
+            <td>${inv.clientName || '—'}</td>
+            <td>${inv.date || '—'}</td>
+            <td>${inv.month || '—'}</td>
+            <td>${inv.totalHours || '0.00'}</td>
+            <td>${inv.rateDisplay || '—'}</td>
+            <td><strong>${symbol}${parseFloat(inv.totalAmount || 0).toFixed(2)}</strong></td>
+            <td><span class="badge badge-${String(inv.status || 'draft').toLowerCase().replace('void','unpaid')}">${inv.status}</span></td>
+            <td>
+              <div class="actions-wrap">
+                <button class="btn btn-sm btn-secondary" onclick="editInvoice('${inv.id}')">Edit</button>
+                <button class="btn btn-sm btn-secondary" onclick="duplicateInvoice('${inv.id}')">Duplicate</button>
+                <button class="btn btn-sm btn-secondary" onclick="downloadPDF('${inv.id}')">PDF</button>
+                ${(inv.status !== 'Sent' && inv.status !== 'Paid') ? `<button class="btn btn-sm btn-danger" onclick="deleteInvoice('${inv.id}')">Delete</button>` : ''}
+              </div>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+// ═══════════════════════════════════════
+// SERVICE ROWS
+// ═══════════════════════════════════════
+function addServiceRow(data = {}) {
+  if (isPaidLocked()) return;
+  const tbody = document.getElementById('serviceRows');
+  const id = Date.now() + Math.random();
+  const tr = document.createElement('tr');
+  tr.id = 'row-' + id;
+  tr.innerHTML = `
+    <td><input type="date" value="${data.date || ''}" class="row-date" style="min-width:130px"></td>
+    <td><input type="text" value="${data.start || ''}" class="row-start" style="min-width:100px" title="Start time" placeholder="HH:MM" inputmode="numeric" maxlength="5"></td>
+    <td><input type="text" value="${data.end || ''}" class="row-end" style="min-width:100px" title="End time" placeholder="HH:MM" inputmode="numeric" maxlength="5"></td>
+    <td><input type="text" value="${data.desc || getSettings().defaultDescription || ''}" class="row-desc" placeholder="Job: Service Detail" style="min-width:240px;max-width:100%;width:100%" maxlength="2000"></td>
+    <td><input type="text" value="${data.hours || ''}" readonly class="row-hours" style="min-width:92px;text-align:center"></td>
+    <td><input type="number" value="${data.rate !== undefined ? data.rate : getSettings().rate}" step="0.01" class="row-rate" style="min-width:80px" inputmode="decimal"></td>
+    <td><input type="text" value="${data.amount || ''}" readonly class="row-amount" style="min-width:88px;text-align:right"></td>
+    <td><button type="button" onclick="removeRow('row-${id}')" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:20px;padding:4px;min-width:32px;touch-action:manipulation">×</button></td>
+  `;
+  tbody.appendChild(tr);
+
+  const startInput = tr.querySelector('.row-start');
+  const endInput = tr.querySelector('.row-end');
+  const rateInput = tr.querySelector('.row-rate');
+  const descInput = tr.querySelector('.row-desc');
+
+  ['input'].forEach(evt => {
+    startInput.addEventListener(evt, () => handleTimeTyping(startInput));
+    endInput.addEventListener(evt, () => handleTimeTyping(endInput));
+  });
+
+  ['change','blur'].forEach(evt => {
+    startInput.addEventListener(evt, () => finalizeTimeAndCalc(startInput));
+    endInput.addEventListener(evt, () => finalizeTimeAndCalc(endInput));
+  });
+
+  ['input','change','blur'].forEach(evt => {
+    rateInput.addEventListener(evt, () => calcRow(rateInput));
+    descInput.addEventListener(evt, refreshEmailPreview);
+  });
+
+  if (data.hours && String(data.hours).includes(':')) {
+    const [h,m] = String(data.hours).split(':').map(Number);
+    tr.querySelector('.row-hours').value = ((h || 0) + (m || 0) / 60).toFixed(2);
+  }
+
+  if (data.amount && !String(data.amount).startsWith(getCurrencySymbol(getSettings().currency))) {
+    tr.querySelector('.row-amount').value = getCurrencySymbol(getSettings().currency) + parseFloat(data.amount || 0).toFixed(2);
+  }
+
+  if (data.start || data.end || data.hours) {
+    calcRow(tr.querySelector('.row-end') || tr.querySelector('.row-start'));
+  } else {
+    calcTotals();
+  }
+}
+
+function removeRow(id) {
+  if (isPaidLocked()) return;
+  document.getElementById(id)?.remove();
+  calcTotals();
+}
+
+function handleTimeTyping(input) {
+  if (!input) return;
+  let raw = String(input.value || '').replace(/[^\d:]/g, '');
+
+  // Only auto-insert colon if they type 4 digits and it's not already there.
+  const digits = raw.replace(/\D/g, '');
+  if (!raw.includes(':') && digits.length === 4) {
+    raw = `${digits.slice(0,2)}:${digits.slice(2)}`;
+  } else if (raw.includes(':')) {
+    const parts = raw.split(':');
+    const hh = (parts[0] || '').replace(/\D/g, '').slice(0, 2);
+    const mm = (parts[1] || '').replace(/\D/g, '').slice(0, 2);
+    raw = `${hh}:${mm}`;
+  }
+
+  input.value = raw.slice(0, 5);
+}
+
+function normalizeTimeValue(value) {
+  if (!value) return '';
+  let raw = String(value).trim();
+  let h, m;
+
+  const digits = raw.replace(/\D/g, '');
+  
+  // Prioritize digit-only parsing for 3 or 4 digits
+  if (!raw.includes(':') && (digits.length === 3 || digits.length === 4)) {
+    if (digits.length === 3) {
+      h = parseInt(digits.slice(0, 1), 10);
+      m = parseInt(digits.slice(1), 10);
+    } else {
+      h = parseInt(digits.slice(0, 2), 10);
+      m = parseInt(digits.slice(2), 10);
+    }
+  } else if (raw.includes(':')) {
+    const parts = raw.split(':');
+    h = parseInt(parts[0] || '0', 10);
+    m = parseInt(parts[1] || '0', 10);
+  } else {
+    // Single or double digit without colon - assume it's the hour
+    h = parseInt(digits, 10);
+    m = 0;
+  }
+
+  if (isNaN(h) || isNaN(m)) return '';
+  
+  // Handle hour overflow (e.g. 25:00 -> 01:00)
+  h = h % 24;
+  m = Math.max(0, Math.min(59, m));
+  
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function finalizeTimeAndCalc(input) {
+  if (!input) return;
+  const normalized = normalizeTimeValue(input.value);
+  input.value = normalized ? snapTimeToQuarter(normalized) : '';
+  calcRow(input);
+}
+
+function snapTimeToQuarter(value) {
+  if (!value || !value.includes(':')) return value || '';
+  let [h, m] = value.split(':').map(Number);
+  // Round minutes to nearest 15: 00, 15, 30, 45
+  m = Math.round(m / 15) * 15;
+  if (m === 60) {
+    m = 0;
+    h = (h + 1) % 24;
+  }
+  const hh = String(h).padStart(2, '0');
+  const mm = String(m).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function decimalHoursFromMinutes(mins) {
+  return (mins / 60).toFixed(2);
+}
+
+function calcRow(el) {
+  if (isPaidLocked()) return;
+  const tr = el.closest('tr');
+  if (!tr) return;
+  const startEl = tr.querySelector('.row-start');
+  const endEl = tr.querySelector('.row-end');
+  const start = snapTimeToQuarter(startEl.value);
+  const end = snapTimeToQuarter(endEl.value);
+  startEl.value = start;
+  endEl.value = end;
+
+  const hoursInput = tr.querySelector('.row-hours');
+  const amountInput = tr.querySelector('.row-amount');
+  const symbol = getCurrencySymbol(getSettings().currency);
+
+  if (!start || !end) {
+    hoursInput.value = '';
+    amountInput.value = symbol + '0.00';
+    tr.removeAttribute('data-overnight');
+    calcTotals();
+    return;
+  }
+
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+
+  if (mins < 0) { mins += 24 * 60; tr.dataset.overnight = 'true'; }
+  else { tr.removeAttribute('data-overnight'); }
+
+    // Minutes are already snapped in snapTimeToQuarter, no need to round here
+    // But we ensure mins is non-negative
+    if (mins < 0) mins = 0;
+
+    const decHours = decimalHoursFromMinutes(mins);
+  hoursInput.value = decHours;
+  const rate = parseFloat(tr.querySelector('.row-rate')?.value) || 0;
+  amountInput.value = symbol + ((mins / 60) * rate).toFixed(2);
+  calcTotals();
+}
+
+function calcTotals() {
+  let totalMins = 0, totalAmt = 0;
+  const activeRates = [];
+  const symbol = getCurrencySymbol(getSettings().currency);
+
+  document.querySelectorAll('#serviceRows tr').forEach(tr => {
+    const hoursEl = tr.querySelector('.row-hours');
+    const rateEl = tr.querySelector('.row-rate');
+    const amountEl = tr.querySelector('.row-amount');
+    const startEl = tr.querySelector('.row-start');
+    const endEl = tr.querySelector('.row-end');
+    if (!hoursEl || !rateEl) return;
+
+    let mins = 0;
+    if (startEl?.value && endEl?.value) {
+      const start = snapTimeToQuarter(startEl.value);
+      const end = snapTimeToQuarter(endEl.value);
+      startEl.value = start;
+      endEl.value = end;
+      const [sh, sm] = start.split(':').map(Number);
+      const [eh, em] = end.split(':').map(Number);
+      mins = (eh * 60 + em) - (sh * 60 + sm);
+      if (mins < 0) mins += 24 * 60;
+      // Minutes are already snapped via snapTimeToQuarter in start/end values
+      hoursEl.value = decimalHoursFromMinutes(mins);
+    } else {
+      const hVal = parseFloat(hoursEl.value);
+      mins = isNaN(hVal) ? 0 : Math.round(hVal * 60);
+    }
+
+    const rate = parseFloat(rateEl.value) || 0;
+    if (rate > 0) activeRates.push(rate);
+    totalMins += mins;
+    const amt = (mins / 60) * rate;
+    totalAmt += amt;
+    if (amountEl) amountEl.value = symbol + amt.toFixed(2);
+  });
+
+  const uniqueRates = [...new Set(activeRates.map(r => r.toFixed(2)))];
+  document.getElementById('totalHours').textContent = decimalHoursFromMinutes(totalMins);
+  document.getElementById('displayRate').textContent = !uniqueRates.length
+    ? `${symbol}0.00/hr`
+    : uniqueRates.length === 1 ? `${symbol}${uniqueRates[0]}/hr` : 'Multiple rates';
+  document.getElementById('totalAmount').textContent = `${symbol}${totalAmt.toFixed(2)}`;
+}
+
+// ═══════════════════════════════════════
+// STATUS CHANGE HANDLER
+// ═══════════════════════════════════════
+function isPaidLocked() {
+  return document.getElementById('invStatus')?.value === 'Paid';
+}
+
+function onStatusChange(el) {
+  const isPaid = el.value === 'Paid';
+  setPaidLock(isPaid);
+}
+
+// ═══════════════════════════════════════
+// SAVE INVOICE
+// ═══════════════════════════════════════
+function saveInvoice(forceStatus) {
+  calcTotals();
+  const s = getSettings();
+  const rows = [];
+
+  document.querySelectorAll('#serviceRows tr').forEach(tr => {
+    rows.push({
+      date: tr.querySelector('.row-date')?.value || '',
+      start: tr.querySelector('.row-start')?.value || '',
+      end: tr.querySelector('.row-end')?.value || '',
+      desc: tr.querySelector('.row-desc')?.value || '',
+      hours: tr.querySelector('.row-hours')?.value || '',
+      rate: tr.querySelector('.row-rate')?.value || '',
+      amount: tr.querySelector('.row-amount')?.value || ''
+    });
+  });
+
+  if (!document.getElementById('providerName').value.trim()) {
+    showToast('Please add provider name before saving.'); return;
+  }
+  if (!document.getElementById('clientName').value.trim()) {
+    showToast('Please add client name before saving.'); return;
+  }
+  if (!rows.some(r => r.date || r.start || r.end || r.desc || r.hours)) {
+    showToast('Please add at least one service line.'); return;
+  }
+
+  const currencySymbol = getCurrencySymbol(s.currency);
+  const inv = {
+    id: editingId || ('inv-' + Date.now()),
+    number: document.getElementById('invNumber').value || autoInvNumber(),
+    status: forceStatus || document.getElementById('invStatus').value,
+    date: document.getElementById('invDate').value,
+    month: document.getElementById('invMonth').value,
+    providerName: document.getElementById('providerName').value,
+    providerTitle: document.getElementById('providerTitle').value,
+    providerAddress: document.getElementById('providerAddress').value,
+    providerEmail: document.getElementById('providerEmail').value,
+    providerPhone: formatPhoneValue(document.getElementById('providerPhone').value),
+    clientName: document.getElementById('clientName').value,
+    deptNumber: document.getElementById('deptNumber').value,
+    fiscalAgent: document.getElementById('fiscalAgent').value,
+    legalGuardian: document.getElementById('legalGuardian').value,
+    clientAddress: document.getElementById('clientAddress').value,
+    clientEmail: document.getElementById('clientEmail').value,
+    npiNumber: document.getElementById('npiNumber').value,
+    einSsn: document.getElementById('einSsn').value,
+    clientSig: document.getElementById('clientSigData').value,
+    providerSig: document.getElementById('providerSigData').value,
+    serviceRows: rows,
+    totalHours: document.getElementById('totalHours').textContent,
+    totalAmount: document.getElementById('totalAmount').textContent.replace(currencySymbol, ''),
+    rateDisplay: document.getElementById('displayRate').textContent,
+    currency: s.currency,
+    createdAt: editingId ? (invoices.find(i => i.id === editingId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+  };
+
+  if (editingId) {
+    const idx = invoices.findIndex(i => i.id === editingId);
+    if (idx > -1) invoices[idx] = inv;
+  } else {
+    invoices.push(inv);
+  }
+
+  saveData();
+  editingId = null;
+  showToast('Invoice saved successfully!');
+  showPage('dashboard');
+}
+
+// ═══════════════════════════════════════
+// AUTO INVOICE NUMBER
+// ═══════════════════════════════════════
+function autoInvNumber() {
+  const s = getSettings();
+  const year = new Date().getFullYear();
+  const prefix = (s.prefix || 'INV').trim() || 'INV';
+  const used = invoices.map(inv => {
+    const match = String(inv.number || '').match(new RegExp(`^${prefix}-${year}-(\\d+)$`));
+    return match ? parseInt(match[1], 10) : 0;
+  });
+  const next = (used.length ? Math.max(...used) : 0) + 1;
+  return `${prefix}-${year}-${String(next).padStart(3, '0')}`;
+}
+
+// ═══════════════════════════════════════
+// EDIT / DUPLICATE / DELETE
+// ═══════════════════════════════════════
+function editInvoice(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  editingId = id;
+  document.getElementById('formTitle').textContent = 'Edit Invoice';
+  showPage('create');
+
+  document.getElementById('invNumber').value = inv.number || '';
+  document.getElementById('invStatus').value = inv.status || 'Draft';
+  document.getElementById('invDate').value = inv.date || '';
+  document.getElementById('invMonth').value = inv.month || '';
+  document.getElementById('providerName').value = inv.providerName || '';
+  document.getElementById('providerTitle').value = inv.providerTitle || '';
+  document.getElementById('providerAddress').value = inv.providerAddress || '';
+  document.getElementById('providerEmail').value = inv.providerEmail || '';
+  document.getElementById('providerPhone').value = formatPhoneValue(inv.providerPhone || '');
+  document.getElementById('clientName').value = inv.clientName || '';
+  document.getElementById('deptNumber').value = inv.deptNumber || '';
+  document.getElementById('fiscalAgent').value = inv.fiscalAgent || '';
+  document.getElementById('npiNumber').value = inv.npiNumber || '';
+  document.getElementById('einSsn').value = inv.einSsn || '';
+  document.getElementById('legalGuardian').value = inv.legalGuardian || '';
+  document.getElementById('clientAddress').value = inv.clientAddress || '';
+  document.getElementById('clientEmail').value = inv.clientEmail || '';
+
+  document.getElementById('clientSigData').value = inv.clientSig || '';
+  document.getElementById('providerSigData').value = inv.providerSig || '';
+
+  syncSignaturePreview('provider', inv.providerSig || '');
+
+  clearCanvas('providerSigCanvas', null);
+  document.getElementById('serviceRows').innerHTML = '';
+  const previousStatus = document.getElementById('invStatus').value;
+  document.getElementById('invStatus').value = 'Draft';
+  (inv.serviceRows || []).forEach(r => addServiceRow(r));
+  document.getElementById('invStatus').value = previousStatus;
+  const isPaid = inv.status === 'Paid';
+  setPaidLock(isPaid);
+  calcTotals();
+}
+
+function duplicateInvoice(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  const clone = JSON.parse(JSON.stringify(inv));
+  clone.id = 'inv-' + Date.now();
+  clone.number = autoInvNumber();
+  clone.status = 'Draft';
+  clone.createdAt = new Date().toISOString();
+  invoices.push(clone);
+  saveData();
+  showToast('Invoice duplicated.');
+  renderDashboard();
+}
+
+function deleteInvoice(id) {
+  if (!confirm('Delete this invoice? This cannot be undone.')) return;
+  invoices = invoices.filter(i => i.id !== id);
+  saveData();
+  showToast('Invoice deleted.');
+  setTimeout(() => renderDashboard(), 100);
+}
+
+// ═══════════════════════════════════════
+// RESET FORM
+// ═══════════════════════════════════════
+function resetForm() {
+  editingId = null;
+  document.getElementById('formTitle').textContent = 'New Invoice';
+  document.getElementById('invNumber').value = autoInvNumber();
+  document.getElementById('invStatus').value = 'Draft';
+  document.getElementById('invDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('invMonth').value = new Date().toISOString().slice(0, 7);
+
+  const s = getSettings();
+  document.getElementById('providerName').value = s.bizName || '';
+  document.getElementById('providerAddress').value = s.address || '';
+  document.getElementById('providerEmail').value = s.email || '';
+  document.getElementById('providerPhone').value = formatPhoneValue(s.phone || '');
+  document.getElementById('providerTitle').value = s.defaultProviderTitle || '';
+
+  document.getElementById('clientName').value = s.defaultClientName || '';
+  ['deptNumber', 'fiscalAgent', 'npiNumber', 'einSsn', 'legalGuardian', 'clientAddress', 'clientEmail'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+
+  document.getElementById('clientSigData').value = '';
+  document.getElementById('providerSigData').value = '';
+  clearCanvas('providerSigCanvas', null);
+  syncSignaturePreview('provider', '');
+  document.getElementById('providerSigTyped').value = '';
+
+  document.getElementById('serviceRows').innerHTML = '';
+  addServiceRow({ rate: s.rate, desc: s.defaultDescription || '' });
+  document.getElementById('totalHours').textContent = '0.00';
+  setPaidLock(false);
+
+  const note = document.getElementById('paidLockNote');
+  if (note) note.remove();
+}
+
+// ═══════════════════════════════════════
+// PAID LOCK
+// ═══════════════════════════════════════
+function setPaidLock(isPaid) {
+  const allowWhenPaid = new Set(['invStatus']);
+  const paidActionLabels = ['⬇️ Download PDF', '📧 Open Email App', '📋 Copy Message'];
+
+  const lockableSelector = '#page-create input, #page-create select, #page-create textarea, #page-create button';
+  document.querySelectorAll(lockableSelector).forEach(el => {
+    if (el.closest('.form-actions')) return;
+    if (allowWhenPaid.has(el.id)) return;
+
+    const text = (el.textContent || '').trim();
+    const isPaidAction = paidActionLabels.includes(text);
+
+    if (isPaidAction) {
+      el.disabled = false;
+      el.removeAttribute('data-paid-locked');
+      return;
+    }
+
+    el.disabled = isPaid;
+    if (isPaid) el.setAttribute('data-paid-locked', 'true');
+    else el.removeAttribute('data-paid-locked');
+  });
+
+  const addRowBtn = document.querySelector('.add-row-btn');
+  if (addRowBtn) {
+    addRowBtn.disabled = isPaid;
+    addRowBtn.style.pointerEvents = isPaid ? 'none' : '';
+    addRowBtn.style.opacity = isPaid ? '0.55' : '';
+  }
+
+  const providerCanvas = document.getElementById('providerSigCanvas');
+  if (providerCanvas) {
+    providerCanvas.style.pointerEvents = isPaid ? 'none' : '';
+    providerCanvas.style.opacity = isPaid ? '0.6' : '';
+    providerCanvas.style.cursor = isPaid ? 'not-allowed' : 'crosshair';
+  }
+
+  document.querySelectorAll('#serviceRows tr').forEach(tr => {
+    tr.querySelectorAll('input, select, button, textarea').forEach(el => {
+      if (el.classList.contains('row-hours') || el.classList.contains('row-amount')) {
+        el.disabled = true;
+      } else {
+        el.disabled = isPaid;
+      }
+      if (isPaid) el.setAttribute('data-paid-locked', 'true');
+      else el.removeAttribute('data-paid-locked');
+    });
+  });
+
+  const statusEl = document.getElementById('invStatus');
+  if (statusEl) statusEl.disabled = false;
+  document.querySelectorAll('.form-actions .btn').forEach(btn => { btn.disabled = false; });
+
+  // Keep premium email actions available even when invoice is Paid
+  document.querySelectorAll('.email-actions .btn').forEach(btn => {
+    btn.disabled = false;
+    btn.style.pointerEvents = '';
+    btn.style.opacity = '';
+    btn.removeAttribute('data-paid-locked');
+  });
+
+  let note = document.getElementById('paidLockNote');
+  if (isPaid && !note) {
+    note = document.createElement('div');
+    note.id = 'paidLockNote';
+    note.className = 'card';
+    note.style.borderLeft = '4px solid var(--success)';
+    note.innerHTML = '<div class="card-title" style="color:var(--success)">✓ Paid Invoice</div><div class="helper-text">This invoice is marked as Paid and editing is locked. You can still change the status, download the PDF, or open the email draft.</div>';
+    const page = document.getElementById('page-create');
+    page.insertBefore(note, page.children[1]);
+  }
+  if (!isPaid && note) note.remove();
+}
+
+// ═══════════════════════════════════════
+// EMAIL TO CLIENT
+// ═══════════════════════════════════════
+
+function getEmailDraftData() {
+  const clientEmail = (document.getElementById('clientEmail').value || '').trim();
+  const clientName = (document.getElementById('clientName').value || 'Client').trim();
+  const invoiceNumber = (document.getElementById('invNumber').value || autoInvNumber()).trim();
+  const providerName = (document.getElementById('providerName').value || document.getElementById('settingsBizName').value || 'Provider').trim();
+  const serviceMonth = document.getElementById('invMonth').value || '';
+  const monthText = serviceMonth ? ` for ${new Date(serviceMonth + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}` : '';
+  const subject = `Invoice ${invoiceNumber}${monthText}`;
+  const body = `Hello ${clientName},
+
+Please find attached invoice ${invoiceNumber}${monthText}.
+
+Kindly review and sign it on your end, then send the signed copy back to ${providerName}.
+
+Thank you,
+${providerName}`;
+  return { clientEmail, clientName, invoiceNumber, providerName, subject, body };
+}
+
+function refreshEmailPreview() {
+  const draft = getEmailDraftData();
+  document.getElementById('emailPreviewTo').textContent = draft.clientEmail || 'Add client email to preview draft';
+  document.getElementById('emailPreviewSubject').textContent = draft.subject || 'Invoice subject will appear here';
+  document.getElementById('emailPreviewBody').textContent = draft.body || 'Email message preview will appear here';
+}
+
+function openEmailDraftOnly() {
+  const draft = getEmailDraftData();
+  if (!draft.clientEmail) { showToast('Please add client email first.'); return; }
+  const subject = encodeURIComponent(draft.subject);
+  const body = encodeURIComponent(draft.body);
+  window.location.href = `mailto:${draft.clientEmail}?subject=${subject}&body=${body}`;
+  showToast('Email app opened. Attach the downloaded PDF before sending.');
+}
+
+function copyEmailMessage() {
+  const draft = getEmailDraftData();
+  const fullText = `To: ${draft.clientEmail || ''}
+Subject: ${draft.subject}
+
+${draft.body}`;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(fullText)
+      .then(() => showToast('Email message copied.'))
+      .catch(() => fallbackCopyText(fullText));
+  } else {
+    fallbackCopyText(fullText);
+  }
+}
+
+function fallbackCopyText(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('Email message copied.');
+  } catch (e) {
+    showToast('Could not copy automatically. Please copy manually.');
+  }
+  ta.remove();
+}
+
+function emailInvoiceToClient() {
+  refreshEmailPreview();
+  downloadWorkingCopyPDF();
+  setTimeout(() => openEmailDraftOnly(), 250);
+}
+
+
+function downloadWorkingCopyPDF() {
+  const temp = collectCurrentInvoice(editingId || '__working_copy__');
+  downloadPDFFromInvoice(temp, true);
+}
+
+function collectCurrentInvoice(idValue) {
+  const s = getSettings();
+  const currencySymbol = getCurrencySymbol(s.currency);
+  const rows = [];
+  document.querySelectorAll('#serviceRows tr').forEach(tr => {
+    rows.push({
+      date: tr.querySelector('.row-date')?.value || '',
+      start: tr.querySelector('.row-start')?.value || '',
+      end: tr.querySelector('.row-end')?.value || '',
+      desc: tr.querySelector('.row-desc')?.value || '',
+      hours: tr.querySelector('.row-hours')?.value || '',
+      rate: tr.querySelector('.row-rate')?.value || '',
+      amount: tr.querySelector('.row-amount')?.value || ''
+    });
+  });
+  return {
+    id: idValue,
+    number: document.getElementById('invNumber').value || autoInvNumber(),
+    status: document.getElementById('invStatus').value,
+    date: document.getElementById('invDate').value,
+    month: document.getElementById('invMonth').value,
+    providerName: document.getElementById('providerName').value,
+    providerTitle: document.getElementById('providerTitle').value,
+    providerAddress: document.getElementById('providerAddress').value,
+    providerEmail: document.getElementById('providerEmail').value,
+    providerPhone: formatPhoneValue(document.getElementById('providerPhone').value),
+    clientName: document.getElementById('clientName').value,
+    deptNumber: document.getElementById('deptNumber').value,
+    fiscalAgent: document.getElementById('fiscalAgent').value,
+    legalGuardian: document.getElementById('legalGuardian').value,
+    clientAddress: document.getElementById('clientAddress').value,
+    clientEmail: document.getElementById('clientEmail').value,
+    npiNumber: document.getElementById('npiNumber').value,
+    einSsn: document.getElementById('einSsn').value,
+    clientSig: document.getElementById('clientSigData').value,
+    providerSig: document.getElementById('providerSigData').value,
+    serviceRows: rows,
+    totalHours: document.getElementById('totalHours').textContent,
+    totalAmount: document.getElementById('totalAmount').textContent.replace(currencySymbol, ''),
+    rateDisplay: document.getElementById('displayRate').textContent,
+    currency: s.currency
+  };
+}
+
+// ═══════════════════════════════════════
+// PDF GENERATION
+// ═══════════════════════════════════════
+function downloadPDF(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  downloadPDFFromInvoice(inv, false);
+}
+
+function downloadPDFFromInvoice(inv, silent) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const s = getSettings();
+  const symbol = getCurrencySymbol(inv.currency || s.currency);
+  const providerLabel = s.providerLabel || 'Provider / Vendor';
+  const clientLabel = s.clientLabel || 'Employer / Client';
+  const pageW = 210;
+  const margin = 16;
+  let y = 18;
+
+  const safeText = value => String(value || '').trim();
+  const money = value => `${symbol}${parseFloat(value || 0).toFixed(2)}`;
+  const decimalHours = value => {
+    const str = String(value || '').trim();
+    if (!str) return '0.00';
+    if (str.includes(':')) {
+      const [h, m] = str.split(':').map(Number);
+      return (((h || 0) * 60 + (m || 0)) / 60).toFixed(2);
+    }
+    return (parseFloat(str) || 0).toFixed(2);
+  };
+  const monthPretty = inv.month ? new Date(inv.month + '-01').toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : '';
+  const wrap = (text, width) => doc.splitTextToSize(safeText(text), width);
+
+  // Logo
+  if (s.logo) {
+    try {
+      // Professional top-left placement
+      doc.addImage(s.logo, 'PNG', margin, y - 6, 35, 18, undefined, 'FAST');
+      y += 18; // Push content down further to avoid overlap with name
+    } catch (e) {
+      console.error('Logo error:', e);
+    }
+  }
+
+  // Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(90, 90, 90);
+  doc.text(safeText(inv.providerName || s.bizName || 'Provider'), margin, y);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Invoice', pageW - margin, y, { align: 'right' });
+
+  y += 10; // Extra spacing after header
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(60, 60, 60);
+  const leftMeta = [
+    safeText(inv.providerAddress),
+    safeText(inv.providerPhone),
+    safeText(inv.providerEmail)
+  ].filter(Boolean);
+  leftMeta.forEach(line => { doc.text(line, margin, y); y += 4.5; });
+
+  const rightTopY = s.logo ? 46 : 26;
+  doc.text(`Invoice #: ${safeText(inv.number)}`, pageW - margin, rightTopY, { align: 'right' });
+  doc.text(`Date: ${safeText(inv.date)}`, pageW - margin, rightTopY + 4.5, { align: 'right' });
+
+  y += 3;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(30, 30, 30);
+  doc.text('From:', margin, y + 4);
+  doc.text('To:', margin + 78, y + 4);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(safeText(inv.providerName || s.bizName || 'Provider'), margin, y + 10);
+  doc.text(safeText(inv.clientName || ''), margin + 78, y + 10);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  const fromLines = [
+    safeText(inv.providerTitle),
+    safeText(inv.providerAddress),
+    safeText(inv.providerPhone),
+    safeText(inv.providerEmail)
+  ].filter(Boolean);
+  let subY = y + 14;
+  fromLines.forEach(line => { doc.text(line, margin, subY); subY += 4; });
+
+  const toLines = [
+    safeText(inv.deptNumber ? `Dept #: ${inv.deptNumber}` : ''),
+    safeText(inv.fiscalAgent ? `Fiscal Agent: ${inv.fiscalAgent}` : ''),
+    safeText(inv.npiNumber ? `NPI: ${inv.npiNumber}` : ''),
+    safeText(inv.einSsn ? `EIN / SSN: ${inv.einSsn}` : ''),
+    safeText(inv.legalGuardian ? `Legal Guardian: ${inv.legalGuardian}` : ''),
+    safeText(inv.clientAddress)
+  ].filter(Boolean);
+  let toY = y + 14;
+  toLines.forEach(line => { doc.text(line, margin + 78, toY); toY += 4; });
+
+  y = Math.max(subY, toY) + 6;
+
+  // table headings
+  const tableX = margin;
+  const tableW = pageW - margin * 2;
+  // Column widths must sum to tableW (178mm): 22+16+16+76+26+22 = 178
+  const colW = { date: 22, start: 16, end: 16, desc: 76, hours: 26, amount: 22 };
+  const col = {
+    date:   tableX,
+    start:  tableX + colW.date,
+    end:    tableX + colW.date + colW.start,
+    desc:   tableX + colW.date + colW.start + colW.end,
+    hours:  tableX + colW.date + colW.start + colW.end + colW.desc,
+    amount: tableX + colW.date + colW.start + colW.end + colW.desc + colW.hours
+  };
+
+  doc.setDrawColor(40);
+  doc.setLineWidth(0.2);
+  const headerH = 14;
+  doc.rect(tableX, y, tableW, headerH);
+  // Draw vertical dividers in header
+  [col.start, col.end, col.desc, col.hours, col.amount].forEach(x => {
+    doc.line(x, y, x, y + headerH);
+  });
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  
+  // Center alignment helper
+  const centerText = (txt, x, w, currentY) => {
+    const lines = doc.splitTextToSize(txt, w - 2);
+    const textH = lines.length * 3.5;
+    const verticalPos = currentY + (headerH - textH) / 2 + 3;
+    doc.text(lines, x + w / 2, verticalPos, { align: 'center' });
+  };
+
+  centerText('Date of\nService',                    col.date,   colW.date,   y);
+  centerText('Start\nTime',                          col.start,  colW.start,  y);
+  centerText('End\nTime',                            col.end,    colW.end,    y);
+  centerText('Description of service rendered',      col.desc,   colW.desc,   y);
+  centerText('Hours Worked\n(by quarter hour)',       col.hours,  colW.hours,  y);
+  centerText('Amount',                               col.amount, colW.amount, y);
+
+  y += headerH;
+
+  (inv.serviceRows || []).forEach((row) => {
+    const hours = decimalHours(row.hours);
+    const provTitle = safeText(inv.providerTitle || s.defaultProviderTitle || '').trim();
+    const provName = safeText(inv.providerName || s.bizName || '').trim();
+    // Build prefix: "Title: Name:" per client CR2 spec
+    const providerPrefix = provTitle && provName ? `${provTitle}: ${provName}` : (provTitle || provName);
+    const preface = providerPrefix ? `${providerPrefix}: ` : '';
+    const fullDescText = preface + safeText(row.desc);
+    const desc = wrap(fullDescText, colW.desc - 4);
+
+    // Calculate actual lines needed: lead lines + 1 blank + desc lines
+    let totalDescLines = 0;
+    if (providerPrefix) {
+      const leadLines = doc.splitTextToSize(providerPrefix + ':', colW.desc - 4);
+      const descLines = doc.splitTextToSize(safeText(row.desc), colW.desc - 4);
+      totalDescLines = leadLines.length + 1 + descLines.length; // lead + blank + desc
+    } else {
+      totalDescLines = desc.length;
+    }
+    const rowHeight = Math.max(14, totalDescLines * 4.5 + 8);
+
+    if (y + rowHeight > 255) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.rect(tableX, y, tableW, rowHeight);
+    [col.start, col.end, col.desc, col.hours, col.amount].forEach(x => doc.line(x, y, x, y + rowHeight));
+    // draw right border of amount column explicitly to close the table
+    doc.line(tableX + tableW, y, tableX + tableW, y + rowHeight);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(safeText(row.date), col.date + 1, y + 5);
+    doc.text(safeText(row.start), col.start + 1, y + 5);
+    doc.text(safeText(row.end), col.end + 1, y + 5);
+
+    // Line 1: bold provider name alone
+    // Line 2: blank
+    // Line 1: bold provider name alone
+    // Line 2: blank (double space)
+    // Line 3+: description text
+    const baseX = col.desc + 2;
+    const baseY = y + 5;
+    const descMaxW = colW.desc - 4;
+    const lineH = 4.5;
+    const providerLead = providerPrefix;
+    if (providerLead) {
+      // Line 1: bold provider title: name on its OWN line
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      const leadLines = doc.splitTextToSize(providerLead + ':', descMaxW);
+      doc.text(leadLines, baseX, baseY);
+      // Double line break after the bold prefix
+      const leadEndY = baseY + (leadLines.length * lineH) + lineH; // extra lineH = blank line
+      // Line after blank: description in normal font
+      doc.setFont('helvetica', 'normal');
+      const descLines = doc.splitTextToSize(safeText(row.desc), descMaxW);
+      doc.text(descLines, baseX, leadEndY);
+    } else {
+      doc.setFont('helvetica', 'normal');
+      const cleanDesc = doc.splitTextToSize(safeText(row.desc), descMaxW);
+      doc.text(cleanDesc, baseX, baseY);
+    }
+
+    const cellMidY = y + rowHeight / 2 + 1.5;
+    doc.text(hours, col.hours + colW.hours / 2, cellMidY, { align: 'center' });
+    const amount = row.amount && String(row.amount).startsWith(symbol) ? row.amount : money(parseFloat(row.amount || 0));
+    doc.text(amount, col.amount + colW.amount - 2, cellMidY, { align: 'right' });
+    y += rowHeight;
+  });
+
+  // Totals and summary
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text(`Total - [${decimalHours(inv.totalHours)} hours] * ${safeText(inv.rateDisplay)}`, tableX, y);
+  // doc.setFont('helvetica', 'bold');
+  // doc.text(money(inv.totalAmount), pageW - margin - 2, y, { align: 'right' });
+
+  y += 10;
+  doc.setDrawColor(60);
+
+  // Right-side total block first
+  const totalBlockX = pageW - margin - 62;
+  const totalBlockW = 62;
+  const totalLabelY = y;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('TOTAL AMOUNT DUE', totalBlockX, totalLabelY);
+  doc.text(money(inv.totalAmount), totalBlockX + totalBlockW, totalLabelY, { align: 'right' });
+  doc.line(totalBlockX, totalLabelY + 5, totalBlockX + totalBlockW, totalLabelY + 5);
+
+  // Signature row below, kept parallel and separated
+  const sigLabelY = totalLabelY + 22;
+  const leftSigX = tableX;
+  const rightSigX = totalBlockX;
+  const leftSigW = 82;
+  const rightSigW = totalBlockW;
+
+  const sigLineY = sigLabelY + 10;
+  doc.setDrawColor(180);
+  doc.line(leftSigX, sigLineY, leftSigX + leftSigW, sigLineY);
+  doc.line(rightSigX, sigLineY, rightSigX + rightSigW, sigLineY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 100, 100);
+  const approvalLabel = "Approval Signature[of the person receiving services or their Designated Representative]";
+  const approvalLines = doc.splitTextToSize(approvalLabel, leftSigW);
+  doc.text(approvalLines, leftSigX, sigLineY + 4);
+  doc.text(safeText(s.providerLabel || 'Provider') + ' Signature', rightSigX, sigLineY + 4);
+
+  // Render Client Signature if available
+  if (inv.clientSig && String(inv.clientSig).startsWith('data:image')) {
+    try {
+      doc.addImage(inv.clientSig, 'PNG', leftSigX + 2, sigLineY - 18, 50, 17);
+    } catch (e) {}
+  }
+
+  // Render Provider Signature if available
+  if (inv.providerSig && String(inv.providerSig).startsWith('data:image')) {
+    try {
+      doc.addImage(inv.providerSig, 'PNG', rightSigX + 2, sigLineY - 18, 50, 17);
+    } catch (e) {}
+  }
+
+  y = sigLineY + 16;
+
+  doc.save(`Invoice-${inv.number || 'draft'}.pdf`);
+  if (!silent) showToast('PDF downloaded!');
+}
+
+// ═══════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════
+function loadSettings() {
+  const s = getSettings();
+  document.getElementById('settingsBizName').value = s.bizName || '';
+  document.getElementById('settingsEmail').value = s.email || '';
+  document.getElementById('settingsPhone').value = formatPhoneValue(s.phone || '');
+  document.getElementById('settingsAddress').value = s.address || '';
+  document.getElementById('settingsRate').value = s.rate || 7.30;
+  document.getElementById('settingsCurrency').value = s.currency || 'USD';
+  document.getElementById('settingsPrefix').value = s.prefix || 'INV';
+  document.getElementById('settingsProviderLabel').value = s.providerLabel || defaults.providerLabel;
+  document.getElementById('settingsClientLabel').value = s.clientLabel || defaults.clientLabel;
+  document.getElementById('settingsDefaultProviderTitle').value = s.defaultProviderTitle || defaults.defaultProviderTitle;
+  document.getElementById('settingsDefaultClientName').value = s.defaultClientName || defaults.defaultClientName;
+  document.getElementById('settingsDefaultDescription').value = s.defaultDescription || defaults.defaultDescription;
+
+  if (s.logo) {
+    document.getElementById('logoPreview').src = s.logo;
+    document.getElementById('logoPreview').style.display = 'block';
+    document.getElementById('logoPlaceholder').style.display = 'none';
+  }
+
+  document.querySelectorAll('.swatch').forEach(sw => {
+    sw.classList.toggle('selected', sw.dataset.color === s.color);
+  });
+  applyColor(s.color);
+}
+
+  function saveSettings() {
+    settings = {
+      bizName: document.getElementById('settingsBizName').value,
+      email: document.getElementById('settingsEmail').value,
+      phone: formatPhoneValue(document.getElementById('settingsPhone').value),
+      address: document.getElementById('settingsAddress').value,
+      rate: parseFloat(document.getElementById('settingsRate').value) || 7.30,
+      currency: document.getElementById('settingsCurrency').value,
+      prefix: document.getElementById('settingsPrefix').value,
+      providerLabel: document.getElementById('settingsProviderLabel').value || defaults.providerLabel,
+      clientLabel: document.getElementById('settingsClientLabel').value || defaults.clientLabel,
+      defaultProviderTitle: document.getElementById('settingsDefaultProviderTitle').value || defaults.defaultProviderTitle,
+      defaultClientName: document.getElementById('settingsDefaultClientName').value || defaults.defaultClientName,
+      defaultDescription: document.getElementById('settingsDefaultDescription').value || defaults.defaultDescription,
+      color: settings.color || defaults.color,
+      logo: settings.logo || null
+    };
+    saveData();
+    document.getElementById('navBrand').textContent = settings.bizName || 'Invoice System';
+    
+    // Refresh labels immediately after saving
+    const s = getSettings();
+    const cLabel = s.clientLabel || 'Employer / Client';
+    if (document.getElementById('clientCardTitle')) document.getElementById('clientCardTitle').textContent = cLabel + ' Info';
+    if (document.getElementById('clientNameLabel')) document.getElementById('clientNameLabel').textContent = cLabel + ' Name';
+    
+    showToast('Settings saved!');
+  }
+
+function setColor(el) {
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  settings.color = el.dataset.color;
+  applyColor(el.dataset.color);
+  saveData();
+}
+
+function applyColor(color) {
+  if (!color) return;
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent-light', `rgba(${r},${g},${b},0.08)`);
+}
+
+function uploadLogo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    settings.logo = e.target.result;
+    saveData();
+    document.getElementById('logoPreview').src = e.target.result;
+    document.getElementById('logoPreview').style.display = 'block';
+    document.getElementById('logoPlaceholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteLogo() {
+  settings.logo = null;
+  saveData();
+  document.getElementById('logoPreview').removeAttribute('src');
+  document.getElementById('logoPreview').style.display = 'none';
+  document.getElementById('logoPlaceholder').style.display = 'block';
+  document.getElementById('logoInput').value = '';
+  showToast('Logo removed.');
+}
+
+// ═══════════════════════════════════════
+// SIGNATURE HANDLING
+// ═══════════════════════════════════════
+const drawing = {};
+
+function switchSigTab(who, mode, btn) {
+  if (isPaidLocked()) return;
+  ['draw', 'upload', 'type'].forEach(m => {
+    document.getElementById(`${who}-${m}-panel`).style.display = m === mode ? 'block' : 'none';
+  });
+  btn.closest('.sig-tabs').querySelectorAll('.sig-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function startDraw(e, canvasId) {
+  if (isPaidLocked()) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  drawing[canvasId] = true;
+  ctx.beginPath();
+  ctx.moveTo((e.clientX - rect.left) * (canvas.width / rect.width), (e.clientY - rect.top) * (canvas.height / rect.height));
+}
+
+function draw(e, canvasId) {
+  if (isPaidLocked()) return;
+  if (!drawing[canvasId]) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1a1814';
+  ctx.lineTo((e.clientX - rect.left) * (canvas.width / rect.width), (e.clientY - rect.top) * (canvas.height / rect.height));
+  ctx.stroke();
+}
+
+function stopDraw(canvasId) {
+  drawing[canvasId] = false;
+  if (isPaidLocked()) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const sigEl = document.getElementById(canvasId.replace('Canvas', 'Data'));
+  if (sigEl) sigEl.value = canvas.toDataURL();
+}
+
+function startDrawTouch(e, canvasId) {
+  if (isPaidLocked()) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  startDraw({ clientX: touch.clientX, clientY: touch.clientY }, canvasId);
+}
+
+function drawTouch(e, canvasId) {
+  if (isPaidLocked()) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  draw({ clientX: touch.clientX, clientY: touch.clientY }, canvasId);
+}
+
+function clearCanvas(canvasId, sigDataId) {
+  if (isPaidLocked() && sigDataId) return;
+  const canvas = document.getElementById(canvasId);
+  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  if (sigDataId) { const el = document.getElementById(sigDataId); if (el) el.value = ''; }
+}
+
+function uploadSig(input, sigDataId, previewId, hintId) {
+  if (isPaidLocked()) return;
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById(sigDataId).value = e.target.result;
+    document.getElementById(previewId).src = e.target.result;
+    document.getElementById(previewId).style.display = 'block';
+    document.getElementById(hintId).style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function syncSignaturePreview(who, dataUrl) {
+  const preview = document.getElementById(`${who}SigPreview`);
+  const hint = document.getElementById(`${who}SigUploadHint`);
+  if (!preview || !hint) return; // safe null guard
+  if (dataUrl) {
+    preview.src = dataUrl;
+    preview.style.display = 'block';
+    hint.style.display = 'none';
+  } else {
+    preview.removeAttribute('src');
+    preview.style.display = 'none';
+    hint.style.display = 'block';
+  }
+}
+
+function typeSig(input, sigDataId) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 340; canvas.height = 80;
+  const ctx = canvas.getContext('2d');
+  ctx.font = "italic 28px 'DM Serif Display', serif";
+  ctx.fillStyle = '#1a1814';
+  ctx.fillText(input.value, 10, 52);
+  document.getElementById(sigDataId).value = canvas.toDataURL();
+}
+
+// ═══════════════════════════════════════
+// PHONE FORMATTING
+// ═══════════════════════════════════════
+function digitsOnly(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 10);
+}
+
+function formatPhoneValue(value) {
+  const d = digitsOnly(value);
+  if (!d) return '';
+  const a = d.slice(0, 3), b = d.slice(3, 6), c = d.slice(6, 10);
+  if (d.length <= 3) return `(${a}`;
+  if (d.length <= 6) return `(${a})-(${b}`;
+  return `(${a})-(${b})-(${c})`;
+}
+
+function formatPhoneInput(input) {
+  const pos = input.selectionStart;
+  input.value = formatPhoneValue(input.value);
+}
+
+// ═══════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════
+function exportInvoices() {
+  const blob = new Blob([JSON.stringify({ invoices, settings, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `invoice-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded.');
+}
+
+function importInvoices(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (Array.isArray(parsed.invoices)) invoices = parsed.invoices;
+      if (parsed.settings && typeof parsed.settings === 'object') settings = parsed.settings;
+      saveData();
+      renderDashboard();
+      loadSettings();
+refreshEmailPreview();
+      showToast('Backup imported successfully.');
+    } catch (err) { showToast('Invalid backup file.'); }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+(function init() {
+  const s = getSettings();
+  seedDemoInvoices();
+  applyColor(s.color);
+  document.getElementById('navBrand').textContent = s.bizName || 'Invoice System';
+  renderDashboard();
+  resetForm();
+})();
+
+['clientEmail','clientName','invNumber','invMonth','providerName','settingsBizName'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('input', refreshEmailPreview);
+    el.addEventListener('change', refreshEmailPreview);
+  }
+});
+refreshEmailPreview();
+
+</script>
+</body>
+</html>
