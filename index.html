@@ -1924,20 +1924,16 @@ function downloadPDFFromInvoice(inv, silent) {
     const fullDescText = preface + safeText(row.desc);
     const desc = wrap(fullDescText, colW.desc - 4);
 
-    // Calculate actual lines needed for the description with bold prefix
+    // Calculate actual lines needed: lead lines + 1 blank + desc lines
     let totalDescLines = 0;
     if (providerPrefix) {
-      const lead = providerPrefix + ':';
-      const leadWidth = doc.getTextWidth(lead + ' ');
-      const firstLineWidth = colW.desc - 4 - leadWidth;
-      const restText = safeText(row.desc);
-      const firstLineParts = doc.splitTextToSize(restText, firstLineWidth > 10 ? firstLineWidth : colW.desc - 4);
-      const remainingParts = firstLineParts.length > 1 ? doc.splitTextToSize(firstLineParts.slice(1).join(' '), colW.desc - 4) : [];
-      totalDescLines = 1 + remainingParts.length;
+      const leadLines = doc.splitTextToSize(providerPrefix + ':', colW.desc - 4);
+      const descLines = doc.splitTextToSize(safeText(row.desc), colW.desc - 4);
+      totalDescLines = leadLines.length + 1 + descLines.length; // lead + blank + desc
     } else {
       totalDescLines = desc.length;
     }
-    const rowHeight = Math.max(14, totalDescLines * 4.5 + 6);
+    const rowHeight = Math.max(14, totalDescLines * 4.5 + 8);
 
     if (y + rowHeight > 255) {
       doc.addPage();
@@ -1955,29 +1951,30 @@ function downloadPDFFromInvoice(inv, silent) {
     doc.text(safeText(row.start), col.start + 1, y + 5);
     doc.text(safeText(row.end), col.end + 1, y + 5);
 
-    // bold provider title/name lead-in — strictly contained within desc column
+    // Line 1: bold provider name alone
+    // Line 2: blank
+    // Line 1: bold provider name alone
+    // Line 2: blank (double space)
+    // Line 3+: description text
     const baseX = col.desc + 2;
     const baseY = y + 5;
     const descMaxW = colW.desc - 4;
+    const lineH = 4.5;
     const providerLead = providerPrefix;
     if (providerLead) {
+      // Line 1: bold provider title: name on its OWN line
       doc.setFont('helvetica', 'bold');
-      const lead = providerLead + ':';
-      doc.text(lead, baseX, baseY);
-      const leadWidth = doc.getTextWidth(lead + ' ');
+      doc.setFontSize(8);
+      const leadLines = doc.splitTextToSize(providerLead + ':', descMaxW);
+      doc.text(leadLines, baseX, baseY);
+      // Double line break after the bold prefix
+      const leadEndY = baseY + (leadLines.length * lineH) + lineH; // extra lineH = blank line
+      // Line after blank: description in normal font
       doc.setFont('helvetica', 'normal');
-      const restText = safeText(row.desc);
-      const firstLineWidth = descMaxW - leadWidth;
-      const safeFirstW = firstLineWidth > 10 ? firstLineWidth : descMaxW;
-      const firstLineParts = doc.splitTextToSize(restText, safeFirstW);
-      if (firstLineParts.length) {
-        doc.text(firstLineParts[0], baseX + leadWidth, baseY);
-        if (firstLineParts.length > 1) {
-          const remaining = doc.splitTextToSize(firstLineParts.slice(1).join(' '), descMaxW);
-          doc.text(remaining, baseX, baseY + 4.5);
-        }
-      }
+      const descLines = doc.splitTextToSize(safeText(row.desc), descMaxW);
+      doc.text(descLines, baseX, leadEndY);
     } else {
+      doc.setFont('helvetica', 'normal');
       const cleanDesc = doc.splitTextToSize(safeText(row.desc), descMaxW);
       doc.text(cleanDesc, baseX, baseY);
     }
