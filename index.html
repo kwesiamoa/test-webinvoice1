@@ -35,7 +35,7 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    overflow-x: hidden;
+    overflow-x: auto;
   }
 
   /* ── NAV ── */
@@ -471,6 +471,7 @@
   <div class="nav-links">
     <button class="nav-link active" onclick="showPage('dashboard')">Dashboard</button>
     <button class="nav-link" onclick="showPage('create')">New Invoice</button>
+    <button class="nav-link" onclick="showPage('paymentrequest')">Payment Request</button>
     <button class="nav-link" onclick="showPage('settings')">Settings</button>
   </div>
 </nav>
@@ -891,6 +892,106 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════ -->
+<!-- PAYMENT REQUEST PAGE                   -->
+<!-- ═══════════════════════════════════════ -->
+<div class="page" id="page-paymentrequest">
+  <div class="card" style="max-width:780px;margin:0 auto;overflow:visible;">
+    <div class="card-title">Payment Request Generator</div>
+    <div class="helper-text" style="margin-bottom:18px;">Select an invoice to generate a Payment Request PDF — auto-populated with all fields matching your form layout. No third party tools required.</div>
+
+    <!-- Invoice selector -->
+    <div class="form-group" style="margin-bottom:18px;">
+      <label>Select Invoice</label>
+      <select id="prInvoiceSelect" onchange="previewPaymentRequest()" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);">
+        <option value="">— Choose an invoice —</option>
+      </select>
+    </div>
+
+    <!-- Preview panel -->
+    <div id="prPreviewPanel" style="display:none;overflow-y:auto;">
+      <div class="divider"></div>
+      <div class="card-title" style="font-size:14px;margin-bottom:12px;">Preview</div>
+
+      <!-- Header fields -->
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);width:70%;">
+              <span style="color:var(--text-secondary);">Employer Name: </span>
+              <strong id="pr-employerName"></strong>
+            </td>
+            <td style="padding:8px 12px;border-bottom:1px solid var(--border);">
+              <span style="color:var(--text-secondary);">Dept # </span>
+              <strong id="pr-deptNum"></strong>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding:8px 12px;border-bottom:1px solid var(--border);">
+              <span style="color:var(--text-secondary);">Vendor/Business Name: </span>
+              <strong id="pr-vendorName"></strong>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding:8px 12px;border-bottom:1px solid var(--border);">
+              <span style="color:var(--text-secondary);">Vendor Mailing Address: </span>
+              <strong id="pr-vendorAddress"></strong>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding:8px 12px;">
+              <span style="color:var(--text-secondary);">Vendor Email: </span>
+              <strong id="pr-vendorEmail"></strong>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Service rows preview -->
+      <div style="border:1px solid var(--border);border-radius:8px;overflow-x:auto;margin-bottom:16px;width:100%;">
+        <table style="width:100%;min-width:460px;border-collapse:collapse;font-size:13px;table-layout:fixed;">
+          <colgroup>
+            <col style="width:50%;">
+            <col style="width:28%;">
+            <col style="width:22%;">
+          </colgroup>
+          <thead>
+            <tr style="background:var(--surface-alt,#f5f5f5);">
+              <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);border-right:1px solid var(--border);">Service Code/Description</th>
+              <th style="padding:8px 12px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border);">Dates of Service</th>
+              <th style="padding:8px 12px;text-align:center;border-bottom:1px solid var(--border);">Amount Due</th>
+            </tr>
+          </thead>
+          <tbody id="prServiceRowsPreview"></tbody>
+          <tfoot>
+            <tr style="background:var(--surface-alt,#f5f5f5);">
+              <td colspan="2" style="padding:8px 12px;text-align:right;border-top:1px solid var(--border);border-right:1px solid var(--border);font-weight:bold;">Total Amount Due for Invoice</td>
+              <td style="padding:8px 12px;text-align:center;border-top:1px solid var(--border);font-weight:bold;" id="pr-total"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Signature note -->
+      <div class="helper-text" style="margin-bottom:18px;margin-top:12px;padding:10px;background:var(--surface-alt,#f9f9f9);border-radius:6px;">
+        📝 <strong>Employer/Authorized Rep Signature</strong> line will appear at the bottom of the PDF for manual signing.
+      </div>
+
+      <!-- Action buttons -->
+      <div class="form-actions" style="padding-bottom:32px;">
+        <button class="btn btn-primary" onclick="generatePaymentRequestFromPage()">⬇️ Download Payment Request PDF</button>
+        <button class="btn btn-secondary" onclick="showPage('dashboard')">Back to Dashboard</button>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="prEmptyState" style="text-align:center;padding:40px 0;color:var(--text-secondary);">
+      <div style="font-size:40px;margin-bottom:12px;">📄</div>
+      <div>Select an invoice above to preview and generate the Payment Request PDF</div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════
 // SAFE STORAGE — handles iOS private browsing
@@ -941,7 +1042,15 @@ function getCurrencySymbol(code) {
 
 function formatMoney(value, currencyCode) {
   const symbol = getCurrencySymbol(currencyCode || getSettings().currency);
-  return `${symbol}${parseFloat(value || 0).toFixed(2)}`;
+  return `${symbol}${parseCurrencyAmount(value).toFixed(2)}`;
+}
+
+function parseCurrencyAmount(value) {
+  if (typeof value === 'number') return isFinite(value) ? value : 0;
+  if (value === null || value === undefined) return 0;
+  const cleaned = String(value).replace(/[^0-9.-]/g, '');
+  const parsed = parseFloat(cleaned);
+  return isFinite(parsed) ? parsed : 0;
 }
 
 // ═══════════════════════════════════════
@@ -1010,12 +1119,13 @@ function showPage(page) {
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   document.querySelectorAll('.nav-link').forEach(l => {
-    if (l.textContent.toLowerCase().includes(page === 'create' ? 'new' : page)) l.classList.add('active');
+    if (l.textContent.toLowerCase().includes(page === 'create' ? 'new' : page === 'paymentrequest' ? 'payment' : page)) l.classList.add('active');
   });
   window.scrollTo(0, 0);
   if (page === 'dashboard') renderDashboard();
   if (page === 'create' && !editingId) resetForm();
   if (page === 'settings') loadSettings();
+  if (page === 'paymentrequest') loadPaymentRequestPage();
   
   const s = getSettings();
   const pLabel = s.providerLabel || 'Provider / Vendor';
@@ -1124,6 +1234,7 @@ function renderDashboard() {
                 <button class="btn btn-sm btn-secondary" onclick="editInvoice('${inv.id}')">Edit</button>
                 <button class="btn btn-sm btn-secondary" onclick="duplicateInvoice('${inv.id}')">Duplicate</button>
                 <button class="btn btn-sm btn-secondary" onclick="downloadPDF('${inv.id}')">PDF</button>
+                <button class="btn btn-sm btn-primary" onclick="generatePaymentRequest('${inv.id}')">Payment Request</button>
                 ${(inv.status !== 'Sent' && inv.status !== 'Paid') ? `<button class="btn btn-sm btn-danger" onclick="deleteInvoice('${inv.id}')">Delete</button>` : ''}
               </div>
             </td>
@@ -1311,8 +1422,9 @@ function calcRow(el) {
 
     const decHours = decimalHoursFromMinutes(mins);
   hoursInput.value = decHours;
-  const rate = parseFloat(tr.querySelector('.row-rate')?.value) || 0;
-  amountInput.value = symbol + ((mins / 60) * rate).toFixed(2);
+  const rate = parseFloat(tr.querySelector('.row-rate')?.value) || parseFloat(getSettings().rate) || 0;
+  const calcAmt = (mins / 60) * rate;
+  amountInput.value = symbol + (isFinite(calcAmt) ? calcAmt.toFixed(2) : '0.00');
   calcTotals();
 }
 
@@ -1788,7 +1900,7 @@ function downloadPDFFromInvoice(inv, silent) {
   let y = 18;
 
   const safeText = value => String(value || '').trim();
-  const money = value => `${symbol}${parseFloat(value || 0).toFixed(2)}`;
+  const money = value => `${symbol}${parseCurrencyAmount(value).toFixed(2)}`;
   const decimalHours = value => {
     const str = String(value || '').trim();
     if (!str) return '0.00';
@@ -1981,7 +2093,7 @@ function downloadPDFFromInvoice(inv, silent) {
 
     const cellMidY = y + rowHeight / 2 + 1.5;
     doc.text(hours, col.hours + colW.hours / 2, cellMidY, { align: 'center' });
-    const amount = row.amount && String(row.amount).startsWith(symbol) ? row.amount : money(parseFloat(row.amount || 0));
+    const amount = money(row.amount);
     doc.text(amount, col.amount + colW.amount - 2, cellMidY, { align: 'right' });
     y += rowHeight;
   });
@@ -2045,6 +2157,216 @@ function downloadPDFFromInvoice(inv, silent) {
 
   doc.save(`Invoice-${inv.number || 'draft'}.pdf`);
   if (!silent) showToast('PDF downloaded!');
+}
+
+// ═══════════════════════════════════════
+// PAYMENT REQUEST PAGE LOGIC
+// ═══════════════════════════════════════
+function loadPaymentRequestPage() {
+  const select = document.getElementById('prInvoiceSelect');
+  const invs = invoices;
+  const current = select.value;
+  select.innerHTML = '<option value="">— Choose an invoice —</option>';
+  invs.forEach(inv => {
+    const opt = document.createElement('option');
+    opt.value = inv.id;
+    opt.textContent = `${inv.number || 'Draft'} — ${inv.clientName || 'No Client'} — ${inv.date || 'No Date'} — ${formatMoney(inv.totalAmount, inv.currency || getSettings().currency)}`;
+    if (inv.id === current) opt.selected = true;
+    select.appendChild(opt);
+  });
+  if (current) previewPaymentRequest();
+  else {
+    document.getElementById('prPreviewPanel').style.display = 'none';
+    document.getElementById('prEmptyState').style.display = 'block';
+  }
+}
+
+function previewPaymentRequest() {
+  const id = document.getElementById('prInvoiceSelect').value;
+  if (!id) {
+    document.getElementById('prPreviewPanel').style.display = 'none';
+    document.getElementById('prEmptyState').style.display = 'block';
+    return;
+  }
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+
+  const symbol = getCurrencySymbol(inv.currency || getSettings().currency);
+
+  document.getElementById('pr-employerName').textContent = inv.clientName || '—';
+  document.getElementById('pr-deptNum').textContent = inv.deptNumber || '—';
+  document.getElementById('pr-vendorName').textContent = inv.providerName || '—';
+  document.getElementById('pr-vendorAddress').textContent = inv.providerAddress || '—';
+  document.getElementById('pr-vendorEmail').textContent = inv.providerEmail || '—';
+  document.getElementById('pr-total').textContent = formatMoney(inv.totalAmount, inv.currency || getSettings().currency);
+
+  // Build service rows grouped by date
+  // Only use first line of description — strip any appended default text
+  const rows = inv.serviceRows || [];
+  const grouped = {};
+  rows.forEach(row => {
+    const d = (row.date || 'N/A').trim();
+    if (!grouped[d]) grouped[d] = { dates: d, descs: [], amount: 0 };
+    // Take only the actual description — first sentence or up to 120 chars
+    const rawDesc = (row.desc || '').trim();
+    // Strip default description if it was accidentally appended
+    const cleanDesc = rawDesc.split(/\n/)[0].trim(); // first line only
+    if (cleanDesc) grouped[d].descs.push(cleanDesc);
+    grouped[d].amount += parseCurrencyAmount(row.amount);
+  });
+
+  const tbody = document.getElementById('prServiceRowsPreview');
+  tbody.innerHTML = '';
+  Object.values(grouped).forEach(gr => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding:8px 12px;border-top:1px solid var(--border);border-right:1px solid var(--border);vertical-align:top;word-wrap:break-word;overflow-wrap:break-word;max-width:0;">${gr.descs.join('; ') || '—'}</td>
+      <td style="padding:8px 12px;border-top:1px solid var(--border);border-right:1px solid var(--border);text-align:center;">${gr.dates}</td>
+      <td style="padding:8px 12px;border-top:1px solid var(--border);text-align:center;">${formatMoney(gr.amount, inv.currency || getSettings().currency)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Fill minimum 3 rows
+  const needed = Math.max(0, 3 - Object.keys(grouped).length);
+  for (let i = 0; i < needed; i++) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding:8px 12px;border-top:1px solid var(--border);border-right:1px solid var(--border);">&nbsp;</td>
+      <td style="padding:8px 12px;border-top:1px solid var(--border);border-right:1px solid var(--border);"></td>
+      <td style="padding:8px 12px;border-top:1px solid var(--border);"></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('prPreviewPanel').style.display = 'block';
+  document.getElementById('prEmptyState').style.display = 'none';
+}
+
+function generatePaymentRequestFromPage() {
+  const id = document.getElementById('prInvoiceSelect').value;
+  if (!id) return showToast('Please select an invoice first');
+  generatePaymentRequest(id);
+}
+
+// ═══════════════════════════════════════
+// PAYMENT REQUEST PDF GENERATION
+// ═══════════════════════════════════════
+function safeRequired(v) {
+  return String(v || '').trim().length > 0;
+}
+
+function generatePaymentRequest(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return showToast('Invoice not found');
+
+  // ── PIXEL-PERFECT PDF matching original 1712190-1.pdf ──
+  // Page = 612x792pt letter. All coordinates from pdfplumber measurements.
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const symbol = getCurrencySymbol(inv.currency || getSettings().currency);
+  function money(v) { return symbol + parseCurrencyAmount(v).toFixed(2); }
+  function safeT(v) { return String(v || '').trim(); }
+
+  // ── Field rows — exact coords from pdfplumber ─────────
+  // Form starts at top of page — no agency header (clean version)
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.6);
+  doc.setFontSize(9);
+
+  // Row 1: Employer Name (x=35.9-436.2) | Dept # (x=436.2-575.8) — y=36-58
+  doc.rect(35.9, 36, 400.3, 22);
+  doc.rect(436.2, 36, 139.6, 22);
+  doc.setFont('helvetica', 'normal'); doc.text('Employer Name:', 41.6, 51);
+  doc.setFont('helvetica', 'bold');   doc.text(safeT(inv.clientName), 131, 51);
+  doc.setFont('helvetica', 'normal'); doc.text('Dept #', 441.8, 51);
+  doc.setFont('helvetica', 'bold');   doc.text(safeT(inv.deptNumber), 474, 51);
+
+  // Row 2: Vendor/Business Name — y=156-178
+  doc.rect(35.9, 58, 539.9, 22);
+  doc.setFont('helvetica', 'normal'); doc.text('Vendor/Business Name:', 41.6, 73);
+  doc.setFont('helvetica', 'bold');   doc.text(safeT(inv.providerName), 165, 73);
+
+  // Row 3: Vendor Mailing Address — y=178-217 (39pt tall)
+  doc.rect(35.9, 80, 539.9, 39);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Vendor Mailing Address (including Street/City/State/Zip):', 41.6, 94);
+  const addrParts = doc.splitTextToSize(safeT(inv.providerAddress), 520);
+  doc.setFont('helvetica', 'bold');
+  doc.text(addrParts[0] || '', 41.6, 108);
+  if (addrParts[1]) doc.text(addrParts[1], 41.6, 117);
+
+  // Row 4: Vendor Email — y=217-239
+  doc.rect(35.9, 119, 539.9, 22);
+  doc.setFont('helvetica', 'normal'); doc.text('Vendor Email Address:', 41.6, 134);
+  doc.setFont('helvetica', 'bold');   doc.text(safeT(inv.providerEmail), 160, 134);
+
+  // ── Service table header — y=239-261
+  // Columns: c1=35.9-220.2 | c2=220.2-436.2 | c3=436.2-575.8
+  const c1x=35.9, c2x=220.2, c3x=436.2, cEnd=575.8;
+  const c1w=c2x-c1x, c2w=c3x-c2x, c3w=cEnd-c3x;
+  doc.setFillColor(210,210,210);
+  doc.rect(c1x,141,c1w,22,'FD');
+  doc.rect(c2x,141,c2w,22,'FD');
+  doc.rect(c3x,141,c3w,22,'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('Service Code/Description', c1x+c1w/2, 155, { align:'center' });
+  doc.text('Dates of Service',         c2x+c2w/2, 155, { align:'center' });
+  doc.text('Amount Due',               c3x+c3w/2, 155, { align:'center' });
+
+  // ── Data rows (21.7pt each, matching original) ────────
+  const rowH = 21.7;
+  let ry = 163;
+  const rows = inv.serviceRows || [];
+  const grouped = {};
+  rows.forEach(row => {
+    const d = safeT(row.date) || '';
+    if (!grouped[d]) grouped[d] = { dates:d, descs:[], amount:0 };
+    const cd = safeT(row.desc).split('\n')[0].trim();
+    if (cd) grouped[d].descs.push(cd);
+    grouped[d].amount += parseCurrencyAmount(row.amount);
+  });
+  const displayRows = Object.values(grouped);
+
+  displayRows.forEach(gr => {
+    const descLines = doc.splitTextToSize(gr.descs.join('; '), c1w-8);
+    const rh = Math.max(rowH, descLines.length*11+8);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.rect(c1x,ry,c1w,rh);
+    doc.rect(c2x,ry,c2w,rh);
+    doc.rect(c3x,ry,c3w,rh);
+    doc.text(descLines, c1x+4, ry+13);
+    const mid = ry+rh/2+4;
+    doc.text(safeT(gr.dates),    c2x+c2w/2, mid, { align:'center' });
+    doc.text(money(gr.amount),   c3x+c3w/2, mid, { align:'center' });
+    ry += rh;
+  });
+
+  // Minimum 3 data rows
+  for (let i=0; i<Math.max(0,3-displayRows.length); i++) {
+    doc.rect(c1x,ry,c1w,rowH);
+    doc.rect(c2x,ry,c2w,rowH);
+    doc.rect(c3x,ry,c3w,rowH);
+    ry += rowH;
+  }
+
+  // ── Total row — grey, bold
+  doc.setFillColor(210,210,210);
+  doc.rect(c1x,ry,c1w+c2w,rowH,'FD');
+  doc.rect(c3x,ry,c3w,rowH,'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('Total Amount Due for Invoice', c2x+c2w-4, ry+14, { align:'right' });
+  doc.text(money(inv.totalAmount), c3x+c3w/2, ry+14, { align:'center' });
+  ry += rowH;
+
+  // ── Employer/Authorized Rep Signature row
+  doc.rect(c1x,ry,cEnd-c1x,rowH);
+  doc.setFont('helvetica','bold');
+  doc.text('Employer/Authorized Rep Signature:', c1x+4, ry+14);
+  ry += rowH;
+
+  doc.save(`PaymentRequest-${inv.number || 'draft'}.pdf`);
+  showToast('Payment Request PDF downloaded!');
 }
 
 // ═══════════════════════════════════════
@@ -2323,7 +2645,7 @@ function showToast(msg) {
 // ═══════════════════════════════════════
 (function init() {
   const s = getSettings();
-  seedDemoInvoices();
+  // Demo data is intentionally not seeded in the client delivery version.
   applyColor(s.color);
   document.getElementById('navBrand').textContent = s.bizName || 'Invoice System';
   renderDashboard();
