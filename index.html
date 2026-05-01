@@ -2160,6 +2160,32 @@ function downloadPDFFromInvoice(inv, silent) {
 }
 
 // ═══════════════════════════════════════
+// PAYMENT REQUEST HELPERS
+// ═══════════════════════════════════════
+// Collects all unique dates from service rows, sorts chronologically,
+// and formats as: "M/D, M/D - YYYY"  (year appended once at the end)
+function formatServiceDates(serviceRows) {
+  // Collect all dates (no dedup per spec), sort chronologically via ISO string sort
+  const dates = (serviceRows || [])
+    .map(r => (r.date || '').trim())
+    .filter(Boolean)
+    .sort();
+  if (!dates.length) return '\u2014';
+
+  // Group by year, preserving chronological order within each group
+  const byYear = {};
+  const yearOrder = [];
+  dates.forEach(d => {
+    const [y, m, day] = d.split('-');
+    if (!byYear[y]) { byYear[y] = []; yearOrder.push(y); }
+    byYear[y].push(`${parseInt(m, 10)}/${parseInt(day, 10)}`);
+  });
+
+  // Each group: "M/D, M/D - YYYY"  —  groups joined with "; "
+  return yearOrder.map(y => `${byYear[y].join(', ')} - ${y}`).join('; ');
+}
+
+// ═══════════════════════════════════════
 // PAYMENT REQUEST PAGE LOGIC
 // ═══════════════════════════════════════
 function loadPaymentRequestPage() {
@@ -2198,38 +2224,29 @@ function previewPaymentRequest() {
   document.getElementById('pr-vendorName').textContent = inv.providerName || '—';
   document.getElementById('pr-vendorAddress').textContent = inv.providerAddress || '—';
   document.getElementById('pr-vendorEmail').textContent = inv.providerEmail || '—';
-  document.getElementById('pr-total').textContent = formatMoney(inv.totalAmount, inv.currency || getSettings().currency);
+  document.getElementById('pr-total').textContent = parseCurrencyAmount(inv.totalAmount).toFixed(2); // PR: no symbol
 
-  // Build service rows grouped by date
-  // Only use first line of description — strip any appended default text
-  const rows = inv.serviceRows || [];
-  const grouped = {};
-  rows.forEach(row => {
-    const d = (row.date || 'N/A').trim();
-    if (!grouped[d]) grouped[d] = { dates: d, descs: [], amount: 0 };
-    // Take only the actual description — first sentence or up to 120 chars
-    const rawDesc = (row.desc || '').trim();
-    // Strip default description if it was accidentally appended
-    const cleanDesc = rawDesc.split(/\n/)[0].trim(); // first line only
-    if (cleanDesc) grouped[d].descs.push(cleanDesc);
-    grouped[d].amount += parseCurrencyAmount(row.amount);
-  });
+  // Service Code/Description = providerTitle (NOT service row descriptions)
+  // Single row only: providerTitle | all dates combined | total amount
+  const serviceCodeDesc = (inv.providerTitle || getSettings().defaultProviderTitle || inv.providerName || '').trim() || '—';
+
+  // All unique service dates combined into one formatted line: "M/D, M/D - YYYY"
+  const allDates = formatServiceDates(inv.serviceRows);
 
   const tbody = document.getElementById('prServiceRowsPreview');
   tbody.innerHTML = '';
-  Object.values(grouped).forEach(gr => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="padding:8px 12px;border-top:1px solid var(--border);border-right:1px solid var(--border);vertical-align:top;word-wrap:break-word;overflow-wrap:break-word;max-width:0;">${gr.descs.join('; ') || '—'}</td>
-      <td style="padding:8px 12px;border-top:1px solid var(--border);border-right:1px solid var(--border);text-align:center;">${gr.dates}</td>
-      <td style="padding:8px 12px;border-top:1px solid var(--border);text-align:center;">${formatMoney(gr.amount, inv.currency || getSettings().currency)}</td>
-    `;
-    tbody.appendChild(tr);
-  });
 
-  // Fill minimum 3 rows
-  const needed = Math.max(0, 3 - Object.keys(grouped).length);
-  for (let i = 0; i < needed; i++) {
+  // Row 1: populated with providerTitle, combined dates, total amount
+  const row1 = document.createElement('tr');
+  row1.innerHTML = `
+    <td style="padding:8px 12px;border-top:1px solid var(--border);border-right:1px solid var(--border);vertical-align:middle;word-wrap:break-word;overflow-wrap:break-word;max-width:0;">${serviceCodeDesc}</td>
+    <td style="padding:8px 12px;border-top:1px solid var(--border);border-right:1px solid var(--border);text-align:center;">${allDates}</td>
+    <td style="padding:8px 12px;border-top:1px solid var(--border);text-align:center;">${parseCurrencyAmount(inv.totalAmount).toFixed(2)}</td><!-- PR: no symbol -->
+  `;
+  tbody.appendChild(row1);
+
+  // Rows 2 and 3: always empty
+  for (let i = 0; i < 2; i++) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="padding:8px 12px;border-top:1px solid var(--border);border-right:1px solid var(--border);">&nbsp;</td>
@@ -2260,110 +2277,234 @@ function generatePaymentRequest(id) {
   const inv = invoices.find(i => i.id === id);
   if (!inv) return showToast('Invoice not found');
 
-  // ── PIXEL-PERFECT PDF matching original 1712190-1.pdf ──
-  // Page = 612x792pt letter. All coordinates from pdfplumber measurements.
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
   const symbol = getCurrencySymbol(inv.currency || getSettings().currency);
-  function money(v) { return symbol + parseCurrencyAmount(v).toFixed(2); }
-  function safeT(v) { return String(v || '').trim(); }
-
-  // ── Field rows — exact coords from pdfplumber ─────────
-  // Form starts at top of page — no agency header (clean version)
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.6);
-  doc.setFontSize(9);
-
-  // Row 1: Employer Name (x=35.9-436.2) | Dept # (x=436.2-575.8) — y=36-58
-  doc.rect(35.9, 36, 400.3, 22);
-  doc.rect(436.2, 36, 139.6, 22);
-  doc.setFont('helvetica', 'normal'); doc.text('Employer Name:', 41.6, 51);
-  doc.setFont('helvetica', 'bold');   doc.text(safeT(inv.clientName), 131, 51);
-  doc.setFont('helvetica', 'normal'); doc.text('Dept #', 441.8, 51);
-  doc.setFont('helvetica', 'bold');   doc.text(safeT(inv.deptNumber), 474, 51);
-
-  // Row 2: Vendor/Business Name — y=156-178
-  doc.rect(35.9, 58, 539.9, 22);
-  doc.setFont('helvetica', 'normal'); doc.text('Vendor/Business Name:', 41.6, 73);
-  doc.setFont('helvetica', 'bold');   doc.text(safeT(inv.providerName), 165, 73);
-
-  // Row 3: Vendor Mailing Address — y=178-217 (39pt tall)
-  doc.rect(35.9, 80, 539.9, 39);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Vendor Mailing Address (including Street/City/State/Zip):', 41.6, 94);
-  const addrParts = doc.splitTextToSize(safeT(inv.providerAddress), 520);
-  doc.setFont('helvetica', 'bold');
-  doc.text(addrParts[0] || '', 41.6, 108);
-  if (addrParts[1]) doc.text(addrParts[1], 41.6, 117);
-
-  // Row 4: Vendor Email — y=217-239
-  doc.rect(35.9, 119, 539.9, 22);
-  doc.setFont('helvetica', 'normal'); doc.text('Vendor Email Address:', 41.6, 134);
-  doc.setFont('helvetica', 'bold');   doc.text(safeT(inv.providerEmail), 160, 134);
-
-  // ── Service table header — y=239-261
-  // Columns: c1=35.9-220.2 | c2=220.2-436.2 | c3=436.2-575.8
-  const c1x=35.9, c2x=220.2, c3x=436.2, cEnd=575.8;
-  const c1w=c2x-c1x, c2w=c3x-c2x, c3w=cEnd-c3x;
-  doc.setFillColor(210,210,210);
-  doc.rect(c1x,141,c1w,22,'FD');
-  doc.rect(c2x,141,c2w,22,'FD');
-  doc.rect(c3x,141,c3w,22,'FD');
-  doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  doc.text('Service Code/Description', c1x+c1w/2, 155, { align:'center' });
-  doc.text('Dates of Service',         c2x+c2w/2, 155, { align:'center' });
-  doc.text('Amount Due',               c3x+c3w/2, 155, { align:'center' });
-
-  // ── Data rows (21.7pt each, matching original) ────────
-  const rowH = 21.7;
-  let ry = 163;
-  const rows = inv.serviceRows || [];
-  const grouped = {};
-  rows.forEach(row => {
-    const d = safeT(row.date) || '';
-    if (!grouped[d]) grouped[d] = { dates:d, descs:[], amount:0 };
-    const cd = safeT(row.desc).split('\n')[0].trim();
-    if (cd) grouped[d].descs.push(cd);
-    grouped[d].amount += parseCurrencyAmount(row.amount);
-  });
-  const displayRows = Object.values(grouped);
-
-  displayRows.forEach(gr => {
-    const descLines = doc.splitTextToSize(gr.descs.join('; '), c1w-8);
-    const rh = Math.max(rowH, descLines.length*11+8);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.rect(c1x,ry,c1w,rh);
-    doc.rect(c2x,ry,c2w,rh);
-    doc.rect(c3x,ry,c3w,rh);
-    doc.text(descLines, c1x+4, ry+13);
-    const mid = ry+rh/2+4;
-    doc.text(safeT(gr.dates),    c2x+c2w/2, mid, { align:'center' });
-    doc.text(money(gr.amount),   c3x+c3w/2, mid, { align:'center' });
-    ry += rh;
-  });
-
-  // Minimum 3 data rows
-  for (let i=0; i<Math.max(0,3-displayRows.length); i++) {
-    doc.rect(c1x,ry,c1w,rowH);
-    doc.rect(c2x,ry,c2w,rowH);
-    doc.rect(c3x,ry,c3w,rowH);
-    ry += rowH;
+  function money(v) {
+    const n = parseCurrencyAmount(v);
+    return (isFinite(n) ? n : 0).toFixed(2); // PR: no currency symbol
+  }
+  function safeT(v)         { return String(v || '').trim(); }
+  function oneLine(v, maxW, baseSize = 9) {
+    const text = safeT(v);
+    doc.setFontSize(baseSize);
+    let currentSize = baseSize;
+    while (doc.getTextWidth(text) > maxW && currentSize > 6) {
+      currentSize -= 0.5;
+      doc.setFontSize(currentSize);
+    }
+    return doc.splitTextToSize(text, maxW)[0] || '';
   }
 
-  // ── Total row — grey, bold
-  doc.setFillColor(210,210,210);
-  doc.rect(c1x,ry,c1w+c2w,rowH,'FD');
-  doc.rect(c3x,ry,c3w,rowH,'FD');
-  doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  doc.text('Total Amount Due for Invoice', c2x+c2w-4, ry+14, { align:'right' });
-  doc.text(money(inv.totalAmount), c3x+c3w/2, ry+14, { align:'center' });
-  ry += rowH;
+  // ── Shared horizontal constants ──────────────────────────────────
+  const LX = 45;          
+  const FW = 522;         
+  const RX = LX + FW;    
 
-  // ── Employer/Authorized Rep Signature row
-  doc.rect(c1x,ry,cEnd-c1x,rowH);
-  doc.setFont('helvetica','bold');
-  doc.text('Employer/Authorized Rep Signature:', c1x+4, ry+14);
-  ry += rowH;
+  const DEPT_X = 420;                  
+  const EMP_W  = DEPT_X - LX;         
+  const DEPT_W = RX - DEPT_X;         
+
+  const C1X = LX;          const C1W = 195;   
+  const C2X = LX + 195;    const C2W = 205;   
+  const C3X = LX + 400;    const C3W = RX - (LX + 400);   
+
+  // ── Shared draw settings ─────────────────────────────────────────
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.5); // Thinner lines for cleaner look
+  doc.setTextColor(0);
+
+  // ════════════════════════════════════════════════════════════════
+  // SECTION 1 — HEADER
+  // ════════════════════════════════════════════════════════════════
+  
+  // Branding: "fello. SELF-DIRECTED SERVICES"
+  // Part 1: "fello." (Bold, lowercase, with period)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(26);
+  doc.text('fello.', LX, 45);
+  const felloWidth = doc.getTextWidth('fello.');
+
+  // Part 2: "SELF-DIRECTED SERVICES" (Uppercase, smaller, light/medium weight)
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  // Positioned right next to "fello." with tight spacing
+  doc.text('SELF-DIRECTED', LX + felloWidth + 4, 39);
+  doc.text('SERVICES',      LX + felloWidth + 4, 47);
+
+  // Title: "Vendor Payment Request Form"
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('Vendor Payment Request Form', RX, 35, { align: 'right' });
+
+  // Contact info
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('Phone: 1.866.252.6871  |  Fax: 1.888.272.2236', RX, 46, { align: 'right' });
+  doc.text('Vendor Payment Request Submittal: SDSVendor@fello.org', RX, 57, { align: 'right' });
+  doc.text('Open a Customer Service Ticket: https://felloselfdirection.zendesk.com', RX, 68, { align: 'right' });
+
+  // ════════════════════════════════════════════════════════════════
+  // MAIN FORM AREA
+  // ════════════════════════════════════════════════════════════════
+  let y = 85;
+
+  // Instruction text box
+  doc.setFillColor(220, 220, 220);
+  doc.rect(LX, y, FW, 32, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  const instrText = 'Please complete ALL information below and provide the required documentation to request a vendor payment for goods & services as indicated in the approved person-centered plan and budget';
+  const instrLines = doc.splitTextToSize(instrText, FW - 15);
+  doc.text(instrLines, LX + 5, y + 13);
+  y += 32;
+
+  // Row 1: Employer Name | Dept #
+  doc.rect(LX, y, EMP_W, 28);
+  doc.rect(DEPT_X, y, DEPT_W, 28);
+  doc.setFontSize(10.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Employer Name:', LX + 5, y + 12);
+  doc.text('Dept #', DEPT_X + 5, y + 12);
+  doc.setFontSize(11.5);
+  doc.text(oneLine(inv.clientName, EMP_W - 90, 11.5), LX + 85, y + 12);
+  doc.text(oneLine(inv.deptNumber, DEPT_W - 45, 11.5), DEPT_X + 40, y + 12);
+  y += 28;
+
+  // Row 2: Vendor/Business Name
+  doc.rect(LX, y, FW, 28);
+  doc.setFontSize(10.5);
+  doc.text('Vendor/Business Name:', LX + 5, y + 12);
+  doc.setFontSize(11.5);
+  doc.text(oneLine(inv.providerName, FW - 125, 11.5), LX + 120, y + 12);
+  y += 28;
+
+  // Row 3: Vendor Mailing Address
+  doc.rect(LX, y, FW, 40);
+  doc.setFontSize(10.5);
+  doc.text('Vendor Mailing Address (including Street/City/State/Zip):', LX + 5, y + 12);
+  doc.setFontSize(11.5);
+  const addrLines = doc.splitTextToSize(safeT(inv.providerAddress), FW - 10);
+  doc.text(addrLines.slice(0, 2), LX + 5, y + 26);
+  y += 40;
+
+  // Row 4: Vendor Email Address
+  doc.rect(LX, y, FW, 28);
+  doc.setFontSize(10.5);
+  doc.text('Vendor Email Address:', LX + 5, y + 12);
+  const emailLabelWidth = doc.getTextWidth('Vendor Email Address:');
+  doc.setFontSize(11.5);
+  doc.text(oneLine(inv.providerEmail, FW - (emailLabelWidth + 15), 11.5), LX + emailLabelWidth + 10, y + 12);
+  y += 28;
+
+  // ════════════════════════════════════════════════════════════════
+  // SERVICE TABLE
+  // ════════════════════════════════════════════════════════════════
+  doc.setFillColor(220, 220, 220);
+  doc.rect(C1X, y, C1W, 25, 'FD');
+  doc.rect(C2X, y, C2W, 25, 'FD');
+  doc.rect(C3X, y, C3W, 25, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.text('Service Code/Description', C1X + C1W / 2, y + 16, { align: 'center' });
+  doc.text('Dates of Service',         C2X + C2W / 2, y + 16, { align: 'center' });
+  doc.text('Amount Due',               C3X + C3W / 2, y + 16, { align: 'center' });
+  y += 25;
+
+  // Data rows
+  const providerTitle = safeT(inv.providerTitle || getSettings().defaultProviderTitle || inv.providerName || '');
+  const allDates      = formatServiceDates(inv.serviceRows);
+  const totalAmt      = money(inv.totalAmount);
+
+  for (let i = 0; i < 3; i++) {
+    doc.rect(C1X, y, C1W, 25);
+    doc.rect(C2X, y, C2W, 25);
+    doc.rect(C3X, y, C3W, 25);
+    if (i === 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11.5);
+      doc.text(oneLine(providerTitle, C1W - 10, 11.5), C1X + 5, y + 16);
+      doc.text(oneLine(allDates,      C2W - 10, 11.5), C2X + C2W / 2, y + 16, { align: 'center' });
+      doc.text(oneLine(totalAmt,      C3W - 10, 11.5), C3X + C3W / 2, y + 16, { align: 'center' });
+    }
+    y += 25;
+  }
+
+  // Total row
+  doc.setFillColor(220, 220, 220);
+  doc.rect(LX, y, C1W + C2W, 25, 'FD');
+  doc.rect(C3X, y, C3W, 25, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.text('Total Amount Due for Invoice', C3X - 10, y + 16, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11.5);
+  doc.text(oneLine(totalAmt, C3W - 10, 11.5), C3X + C3W / 2, y + 16, { align: 'center' });
+  y += 25;
+
+  // Signature row
+  doc.rect(LX, y, FW, 28);
+  doc.text('Employer/Authorized Rep Signature:', LX + 5, y + 18);
+  y += 28;
+
+  // Certification text
+  doc.rect(LX, y, FW, 35);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  const certText = 'By signing above, I certify that the goods & services reflected by this Vendor Payment Request were delivered/received and are in accordance with Maryland DDA Standards. I certify that the invoice is true and accurate. False information constitutes Medicaid fraud.';
+  const certLines = doc.splitTextToSize(certText, FW - 15);
+  doc.text(certLines, LX + FW / 2, y + 12, { align: 'center' });
+  y += 35;
+
+  // ════════════════════════════════════════════════════════════════
+  // BOTTOM TABLE
+  // ════════════════════════════════════════════════════════════════
+  const T2_C1W = 175;
+  const T2_C2W = FW - T2_C1W;
+
+  doc.setFillColor(220, 220, 220);
+  doc.rect(LX, y, T2_C1W, 22, 'FD');
+  doc.rect(LX + T2_C1W, y, T2_C2W, 22, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.text('Payment Type', LX + T2_C1W / 2, y + 15, { align: 'center' });
+  doc.text('Invoice Requirements/Information Needed', LX + T2_C1W + T2_C2W / 2, y + 15, { align: 'center' });
+  y += 22;
+
+  const T2_H = 340;
+  doc.rect(LX, y, T2_C1W, T2_H);
+  doc.rect(LX + T2_C1W, y, T2_C2W, T2_H);
+  doc.text('Vendor Invoice\nRequirements', LX + T2_C1W / 2, y + 40, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  const bullet = '\u2022 ';
+  const reqItems = [
+    { text: 'An invoice or quote should be submitted with the following:', bold: true },
+    { text: bullet + "The vendor's name, address, and email" },
+    { text: bullet + "The employer's name as the recipient" },
+    { text: bullet + 'The goods or services to be purchased' },
+    { text: '' },
+    { text: 'Service invoices should reflect the exact dates of services with the following:', bold: false },
+    { text: '' },
+    { text: bullet + 'Participant name' },
+    { text: bullet + 'Vendor name' },
+    { text: bullet + 'The service(s) rendered as authorized in the Person-Centered Plan' },
+    { text: bullet + 'Date(s) the services were rendered' },
+    { text: bullet + 'Start and end times of the services each day' },
+    { text: bullet + 'Number of hours/units for each day (broken down by the quarter hour)' },
+    { text: bullet + 'Name of each employee who provided the service(s)' },
+    { text: bullet + 'A description of tasks completed by the vendor for each time entry' },
+    { text: bullet + 'Total amount charged' },
+  ];
+  let ry = y + 15;
+  reqItems.forEach(item => {
+    if (item.text === '') {
+      ry += 8;
+      return;
+    }
+    doc.setFont('helvetica', item.bold ? 'bold' : 'normal');
+    const wrapped = doc.splitTextToSize(item.text, T2_C2W - 15);
+    doc.text(wrapped, LX + T2_C1W + 7, ry);
+    ry += wrapped.length * 13.5;
+  });
 
   doc.save(`PaymentRequest-${inv.number || 'draft'}.pdf`);
   showToast('Payment Request PDF downloaded!');
