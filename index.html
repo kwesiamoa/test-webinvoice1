@@ -471,7 +471,6 @@
   <div class="nav-links">
     <button class="nav-link active" onclick="showPage('dashboard')">Dashboard</button>
     <button class="nav-link" onclick="showPage('create')">New Invoice</button>
-    <button class="nav-link" onclick="showPage('paymentrequest')">Payment Request</button>
     <button class="nav-link" onclick="showPage('settings')">Settings</button>
   </div>
 </nav>
@@ -1233,8 +1232,8 @@ function renderDashboard() {
               <div class="actions-wrap">
                 <button class="btn btn-sm btn-secondary" onclick="editInvoice('${inv.id}')">Edit</button>
                 <button class="btn btn-sm btn-secondary" onclick="duplicateInvoice('${inv.id}')">Duplicate</button>
-                <button class="btn btn-sm btn-secondary" onclick="downloadPDF('${inv.id}')">PDF</button>
-                <button class="btn btn-sm btn-primary" onclick="generatePaymentRequest('${inv.id}')">Payment Request</button>
+                <button class="btn btn-sm btn-secondary" onclick="downloadPDF('${inv.id}')">Invoice PDF</button>
+                <button class="btn btn-sm btn-primary" onclick="downloadPDF('${inv.id}'); generatePaymentRequest('${inv.id}')">VPR + Invoice PDF</button>
                 ${(inv.status !== 'Sent' && inv.status !== 'Paid') ? `<button class="btn btn-sm btn-danger" onclick="deleteInvoice('${inv.id}')">Delete</button>` : ''}
               </div>
             </td>
@@ -2506,7 +2505,9 @@ function generatePaymentRequest(id) {
     ry += wrapped.length * 13.5;
   });
 
-  doc.save(`PaymentRequest-${inv.number || 'draft'}.pdf`);
+  const year = new Date().getFullYear();
+  const invNum = (inv.number || 'draft').replace(/^[^-]+-/, '');
+  doc.save(`VPR-INV-${year}-${invNum}.pdf`);
   showToast('Payment Request PDF downloaded!');
 }
 
