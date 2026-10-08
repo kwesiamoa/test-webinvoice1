@@ -2359,7 +2359,7 @@ async function generatePaymentRequest(id) {
     const link = document.createElement('a');
     link.href = url;
     const safeNumber = String(inv.number || 'draft').replace(/[^a-zA-Z0-9._-]+/g, '-');
-    link.download = `VPR-${safeNumber}-.pdf`;
+    link.download = `VPR-${safeNumber}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
